@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Arqueo y Cobros de Créditos</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+</head>
+
+<body>
+    <div class="container">
+        <!-- Navigation Tabs -->
+        <nav class="tabs-nav">
+            <button class="tab-btn active" data-tab="arqueo">
+                <span class="tab-icon">💰</span>
+                <span class="tab-text">Arqueo</span>
+            </button>
+            <button class="tab-btn" data-tab="visitas">
+                <span class="tab-icon">📍</span>
+                <span class="tab-text">Visitas</span>
+            </button>
+        </nav>
+
+        <!-- ==================== TAB: ARQUEO ==================== -->
+        <div class="tab-content active" id="tab-arqueo">
+            <!-- Header -->
+            <header class="header">
+                <h1>ARQUEO Y COBROS DE CRÉDITOS</h1>
+                <div class="vendedor-info">
+                    <span class="label">Vendedor:</span>
+                    <span id="vendedor-nombre" class="value">Cargando...</span>
+                </div>
+                <div class="fecha-info">
+                    <div class="fecha-group">
+                        <input type="date" id="fecha" class="fecha-input">
+                        <span id="dia-semana" class="dia-badge">---</span>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Sección: Ventas -->
+            <section class="section ventas-section">
+                <h2 class="section-title">
+                    <span class="icon">💰</span> Ventas
+                </h2>
+                <div class="form-group">
+                    <label for="venta-bruta">Venta Bruta</label>
+                    <div class="input-money">
+                        <input type="text" id="venta-bruta" inputmode="decimal" placeholder="0,00">
+                        <span class="currency">Bs</span>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="descuentos">Descuentos</label>
+                    <div class="input-money">
+                        <input type="text" id="descuentos" inputmode="decimal" placeholder="0,00">
+                        <span class="currency">Bs</span>
+                    </div>
+                </div>
+                <div class="form-group resultado">
+                    <label>Venta Total</label>
+                    <div class="input-money readonly">
+                        <span id="venta-total" class="calculated-value">0,00</span>
+                        <span class="currency">Bs</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Sección: Registro de Créditos -->
+            <section class="section creditos-section">
+                <h2 class="section-title">
+                    <span class="icon">📋</span> Registro de Créditos
+                </h2>
+                <div class="creditos-table-container">
+                    <table class="creditos-table" id="creditos-table">
+                        <thead>
+                            <tr>
+                                <th>Código Cliente</th>
+                                <th>Saldo</th>
+                                <th>Cobrado</th>
+                                <th>Venta Créd.</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody id="creditos-body">
+                            <!-- Filas dinámicas -->
+                        </tbody>
+                        <tfoot>
+                            <tr class="totales-row">
+                                <td><strong>TOTALES</strong></td>
+                                <td id="total-saldo">0,00</td>
+                                <td id="total-cobrado">0,00</td>
+                                <td id="total-venta-credito">0,00</td>
+                                <td></td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+                <button type="button" class="btn-add" id="btn-add-credito">
+                    <span>+</span> Agregar Cliente
+                </button>
+            </section>
+
+            <!-- Sección: Gastos -->
+            <section class="section gastos-section">
+                <h2 class="section-title">
+                    <span class="icon">🧾</span> Gastos
+                </h2>
+                <div id="gastos-container">
+                    <div class="gasto-row" data-gasto="combustible">
+                        <label>Combustible</label>
+                        <div class="input-money">
+                            <input type="text" class="gasto-input" inputmode="decimal" placeholder="0,00">
+                            <span class="currency">Bs</span>
+                        </div>
+                    </div>
+                    <div class="gasto-row" data-gasto="peaje">
+                        <label>Peaje</label>
+                        <div class="input-money">
+                            <input type="text" class="gasto-input" inputmode="decimal" placeholder="0,00">
+                            <span class="currency">Bs</span>
+                        </div>
+                    </div>
+                </div>
+                <button type="button" class="btn-add" id="btn-add-gasto">
+                    <span>+</span> Agregar Gasto
+                </button>
+                <div class="form-group resultado total-gastos">
+                    <label>Total Gastos</label>
+                    <div class="input-money readonly">
+                        <span id="total-gastos" class="calculated-value">0,00</span>
+                        <span class="currency">Bs</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Sección: Totales -->
+            <section class="section totales-section">
+                <h2 class="section-title">
+                    <span class="icon">📊</span> Total a Entregar
+                </h2>
+                <div class="total-efectivo-box">
+                    <span class="total-label">TOTAL EFECTIVO</span>
+                    <span id="total-efectivo" class="total-value">0,00 Bs</span>
+                </div>
+                <p class="total-formula">= Venta Total + Créditos Cobrados - Ventas a Crédito - Gastos</p>
+            </section>
+
+            <!-- Sección: Dinero Entregado -->
+            <section class="section entrega-section">
+                <h2 class="section-title">
+                    <span class="icon">💵</span> Dinero Entregado
+                </h2>
+                <div class="form-group">
+                    <label for="efectivo-entregado">Efectivo</label>
+                    <div class="input-money">
+                        <input type="text" id="efectivo-entregado" inputmode="decimal" placeholder="0,00">
+                        <span class="currency">Bs</span>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="qr-entregado">QR / Transferencia</label>
+                    <div class="input-money">
+                        <input type="text" id="qr-entregado" inputmode="decimal" placeholder="0,00">
+                        <span class="currency">Bs</span>
+                    </div>
+                </div>
+                <div class="diferencia-box" id="diferencia-box">
+                    <span class="diferencia-label">DIFERENCIA</span>
+                    <span id="diferencia" class="diferencia-value">0,00 Bs</span>
+                </div>
+            </section>
+
+            <!-- Botón Enviar Arqueo -->
+            <div class="submit-container">
+                <button type="button" class="btn-submit" id="btn-enviar">
+                    Enviar Arqueo
+                </button>
+            </div>
+        </div>
+
+        <!-- ==================== TAB: VISITAS ==================== -->
+        <div class="tab-content" id="tab-visitas">
+            <header class="header">
+                <h1>CONTROL DE VISITAS</h1>
+                <div class="vendedor-info">
+                    <span class="label">Vendedor:</span>
+                    <span id="vendedor-nombre-visitas" class="value">Cargando...</span>
+                </div>
+            </header>
+
+            <!-- Selector de Día -->
+            <section class="section dia-selector-section">
+                <div class="dia-selector">
+                    <button type="button" class="dia-nav-btn" id="btn-dia-prev">◄</button>
+                    <div class="dia-display">
+                        <span id="dia-nombre" class="dia-nombre">VIERNES</span>
+                        <span id="dia-fecha" class="dia-fecha">17/1/26</span>
+                    </div>
+                    <button type="button" class="dia-nav-btn" id="btn-dia-next">►</button>
+                </div>
+            </section>
+
+            <!-- Lista de Clientes -->
+            <section class="section clientes-section">
+                <h2 class="section-title">
+                    <span class="icon">👥</span> Clientes del Día
+                </h2>
+                <div id="clientes-list" class="clientes-list">
+                    <!-- Lista dinámica de clientes -->
+                    <div class="cliente-row">
+                        <label class="cliente-checkbox">
+                            <input type="checkbox" class="visita-check">
+                            <span class="checkmark"></span>
+                        </label>
+                        <div class="cliente-info">
+                            <span class="cliente-codigo">C001</span>
+                            <span class="cliente-nombre">Tienda La Esquina</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="visitas-empty" id="visitas-empty" style="display: none;">
+                    <span class="empty-icon">📭</span>
+                    <p>No hay clientes programados para este día</p>
+                </div>
+            </section>
+
+            <!-- Resumen de Visitas -->
+            <section class="section resumen-visitas">
+                <div class="visitas-counter">
+                    <span class="counter-label">Visitados:</span>
+                    <span id="visitas-count" class="counter-value">0</span>
+                    <span class="counter-separator">/</span>
+                    <span id="visitas-total" class="counter-total">0</span>
+                </div>
+                <div class="visitas-progress">
+                    <div class="progress-bar" id="progress-bar" style="width: 0%"></div>
+                </div>
+            </section>
+
+            <!-- Botón Guardar Visitas -->
+            <div class="submit-container">
+                <button type="button" class="btn-submit btn-visitas" id="btn-guardar-visitas">
+                    Guardar Visitas
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+
+</html>
