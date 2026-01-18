@@ -410,6 +410,19 @@ function initEventListeners() {
         });
     });
 
+    // Event listeners para gastos fijos (Combustible, Peaje)
+    document.querySelectorAll('.gasto-row .gasto-input').forEach(input => {
+        input.addEventListener('input', (e) => {
+            handleMoneyInput(e.target);
+            calcularTodo();
+        });
+        input.addEventListener('blur', (e) => {
+            if (e.target.value) {
+                e.target.value = formatMoney(parseMoney(e.target.value));
+            }
+        });
+    });
+
     document.getElementById('btn-add-credito').addEventListener('click', () => addCreditoRow());
     document.getElementById('btn-add-gasto').addEventListener('click', () => addGastoRow());
     document.getElementById('btn-enviar').addEventListener('click', enviarArqueo);
