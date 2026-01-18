@@ -36,7 +36,8 @@ function initTelegram() {
 
         // Obtener nombre del usuario de Telegram
         const user = tg.initDataUnsafe?.user;
-        vendedorUsername = user?.username || user?.first_name || 'Usuario';
+        // Usar first_name como identificador del vendedor (debe coincidir con nombre de hoja en Google Sheets)
+        vendedorUsername = user?.first_name || 'Usuario';
         const nombreCompleto = user ? (user.first_name + (user.last_name ? ' ' + user.last_name : '')) : 'Usuario';
 
         document.getElementById('vendedor-nombre').textContent = nombreCompleto;
@@ -186,33 +187,26 @@ function actualizarDisplayDia() {
 }
 
 function cargarClientesDelDia() {
-    // Por ahora usamos datos de ejemplo
-    // En producción esto vendrá de Google Sheets
     const diaCorto = DIAS_CORTOS[currentDiaIndex];
 
-    // Datos de ejemplo para demostración
+    // Si hay URL de Google Sheets configurada, cargar desde ahí
+    if (GOOGLE_SCRIPT_URL_VISITAS !== 'YOUR_GOOGLE_SCRIPT_URL_VISITAS_HERE') {
+        cargarClientesDesdeSheets();
+        return;
+    }
+
+    // Datos de ejemplo solo para modo desarrollo
     const clientesEjemplo = {
         'LUN': [
             { codigo: 'C001', nombre: 'Tienda La Esquina' },
-            { codigo: 'C002', nombre: 'Abarrotes Don Pedro' },
-            { codigo: 'C003', nombre: 'Minimarket Sol' }
+            { codigo: 'C002', nombre: 'Abarrotes Don Pedro' }
         ],
         'MAR': [
-            { codigo: 'C004', nombre: 'Bodega Central' },
-            { codigo: 'C005', nombre: 'Distribuidora Norte' }
+            { codigo: 'C003', nombre: 'Bodega Central' }
         ],
-        'MIE': [
-            { codigo: 'C006', nombre: 'Super Familiar' },
-            { codigo: 'C007', nombre: 'Tienda Express' },
-            { codigo: 'C008', nombre: 'Comercial Sur' }
-        ],
-        'JUE': [
-            { codigo: 'C009', nombre: 'Mayorista ABC' }
-        ],
-        'VIE': [
-            { codigo: 'C010', nombre: 'Minimarket Luna' },
-            { codigo: 'C011', nombre: 'Abarrotes El Sol' }
-        ],
+        'MIE': [],
+        'JUE': [],
+        'VIE': [],
         'SAB': [],
         'DOM': []
     };
@@ -221,25 +215,30 @@ function cargarClientesDelDia() {
     renderizarClientes();
 }
 
-// En producción, esta función cargará desde Google Sheets:
+// Cargar clientes desde Google Sheets
 async function cargarClientesDesdeSheets() {
-    if (GOOGLE_SCRIPT_URL_VISITAS === 'YOUR_GOOGLE_SCRIPT_URL_VISITAS_HERE') {
-        return; // Modo desarrollo
-    }
-
     try {
         const diaCorto = DIAS_CORTOS[currentDiaIndex];
         const url = `${GOOGLE_SCRIPT_URL_VISITAS}?action=clientes&vendedor=${encodeURIComponent(vendedorUsername)}&dia=${diaCorto}`;
 
+        console.log('Cargando clientes para:', vendedorUsername, 'día:', diaCorto);
+
         const response = await fetch(url);
         const data = await response.json();
 
+        console.log('Respuesta de Google Sheets:', data);
+
         if (data.success) {
-            clientesDelDia = data.clientes;
-            renderizarClientes();
+            clientesDelDia = data.clientes || [];
+        } else {
+            console.error('Error del servidor:', data.error);
+            clientesDelDia = [];
         }
+        renderizarClientes();
     } catch (error) {
         console.error('Error cargando clientes:', error);
+        clientesDelDia = [];
+        renderizarClientes();
     }
 }
 
