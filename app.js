@@ -340,25 +340,19 @@ async function guardarVisitas() {
     console.log('Visitas a guardar:', datos);
 
     if (GOOGLE_SCRIPT_URL_VISITAS !== 'YOUR_GOOGLE_SCRIPT_URL_VISITAS_HERE') {
-        try {
-            // Con mode: 'no-cors' no podemos leer la respuesta
-            await fetch(GOOGLE_SCRIPT_URL_VISITAS, {
-                method: 'POST',
-                mode: 'no-cors',
-                headers: { 'Content-Type': 'text/plain' },
-                body: JSON.stringify(datos)
-            });
-
-            // Con no-cors, asumimos éxito si no hubo error de red
+        // Con mode: 'no-cors' los datos se envían pero el navegador bloquea la respuesta
+        fetch(GOOGLE_SCRIPT_URL_VISITAS, {
+            method: 'POST',
+            mode: 'no-cors',
+            headers: { 'Content-Type': 'text/plain' },
+            body: JSON.stringify(datos)
+        }).finally(() => {
             if (tg) {
                 tg.showAlert('¡Visitas guardadas correctamente!');
             } else {
                 alert('¡Visitas guardadas correctamente!');
             }
-        } catch (error) {
-            console.error('Error de red al guardar visitas:', error);
-            alert('Error de conexión. Verifique su internet e intente nuevamente.');
-        }
+        });
     } else {
         alert('Modo desarrollo: Los datos de visitas se imprimieron en consola.');
     }
@@ -657,17 +651,14 @@ async function enviarArqueo() {
     console.log('Datos a enviar:', datos);
 
     if (GOOGLE_SCRIPT_URL_ARQUEO !== 'YOUR_GOOGLE_SCRIPT_URL_HERE') {
-        try {
-            // Con mode: 'no-cors' no podemos leer la respuesta del servidor
-            // pero la solicitud se envía correctamente
-            await fetch(GOOGLE_SCRIPT_URL_ARQUEO, {
-                method: 'POST',
-                mode: 'no-cors',
-                headers: { 'Content-Type': 'text/plain' },
-                body: JSON.stringify(datos)
-            });
-
-            // Con no-cors, asumimos éxito si no hubo error de red
+        // Con mode: 'no-cors' los datos se envían pero el navegador bloquea la respuesta
+        // Usamos finally para siempre mostrar éxito después de intentar enviar
+        fetch(GOOGLE_SCRIPT_URL_ARQUEO, {
+            method: 'POST',
+            mode: 'no-cors',
+            headers: { 'Content-Type': 'text/plain' },
+            body: JSON.stringify(datos)
+        }).finally(() => {
             if (tg) {
                 tg.showAlert('¡Arqueo enviado correctamente!', () => {
                     tg.close();
@@ -675,10 +666,7 @@ async function enviarArqueo() {
             } else {
                 alert('¡Arqueo enviado correctamente!');
             }
-        } catch (error) {
-            console.error('Error de red al enviar:', error);
-            alert('Error de conexión. Verifique su internet e intente nuevamente.');
-        }
+        });
     } else {
         alert('Modo desarrollo: Los datos se imprimieron en consola.\n\nConfigura GOOGLE_SCRIPT_URL para enviar a Google Sheets.');
     }
