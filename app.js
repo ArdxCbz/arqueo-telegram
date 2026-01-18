@@ -2,8 +2,8 @@
 const tg = window.Telegram?.WebApp;
 
 // ===== Configuration =====
-const GOOGLE_SCRIPT_URL_ARQUEO = 'YOUR_GOOGLE_SCRIPT_URL_HERE'; // Arqueo
-const GOOGLE_SCRIPT_URL_VISITAS = 'YOUR_GOOGLE_SCRIPT_URL_VISITAS_HERE'; // Visitas
+const GOOGLE_SCRIPT_URL_ARQUEO = 'https://script.google.com/macros/s/AKfycbwreVuOLQt1N36KJDF8oY9Vzc3F0WNAOzg5GIQxyU2nHH5HEOTDY0HB6GcFgJ9eqy9-FA/exec'; // Arqueo
+const GOOGLE_SCRIPT_URL_VISITAS = 'https://script.google.com/macros/s/AKfycbzfit8INhfzVrXKKC5aD67dI_emDSL4vSvryc3pacnB1CnsKMzVKTNdBIKPji3nAd2cXA/exec'; // Visitas
 
 // ===== State =====
 let creditoIdCounter = 0;
