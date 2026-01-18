@@ -131,6 +131,18 @@ function formatearFechaCorta(fecha) {
     return `${d.getDate()}/${d.getMonth() + 1}/${String(d.getFullYear()).slice(-2)}`;
 }
 
+// Timestamp en hora local (Bolivia UTC-4)
+function getTimestampLocal() {
+    const now = new Date();
+    const dia = String(now.getDate()).padStart(2, '0');
+    const mes = String(now.getMonth() + 1).padStart(2, '0');
+    const anio = now.getFullYear();
+    const hora = String(now.getHours()).padStart(2, '0');
+    const min = String(now.getMinutes()).padStart(2, '0');
+    const seg = String(now.getSeconds()).padStart(2, '0');
+    return `${dia}/${mes}/${anio} ${hora}:${min}:${seg}`;
+}
+
 // ===== Visitas =====
 function initVisitas() {
     const hoy = new Date();
@@ -613,7 +625,7 @@ async function enviarArqueo() {
         efectivoEntregado: parseMoney(document.getElementById('efectivo-entregado').value),
         qrEntregado: parseMoney(document.getElementById('qr-entregado').value),
         diferencia: parseMoney(document.getElementById('diferencia').textContent),
-        timestamp: new Date().toISOString(),
+        timestamp: getTimestampLocal(),
         telegramUserId: tg?.initDataUnsafe?.user?.id || null
     };
 
@@ -626,13 +638,16 @@ async function enviarArqueo() {
 
     if (GOOGLE_SCRIPT_URL_ARQUEO !== 'YOUR_GOOGLE_SCRIPT_URL_HERE') {
         try {
+            // Con mode: 'no-cors' no podemos leer la respuesta del servidor
+            // pero la solicitud se envía correctamente
             await fetch(GOOGLE_SCRIPT_URL_ARQUEO, {
                 method: 'POST',
                 mode: 'no-cors',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'text/plain' },
                 body: JSON.stringify(datos)
             });
 
+            // Con no-cors, asumimos éxito si no hubo error de red
             if (tg) {
                 tg.showAlert('¡Arqueo enviado correctamente!', () => {
                     tg.close();
@@ -641,8 +656,8 @@ async function enviarArqueo() {
                 alert('¡Arqueo enviado correctamente!');
             }
         } catch (error) {
-            console.error('Error al enviar:', error);
-            alert('Error al enviar el arqueo. Intente nuevamente.');
+            console.error('Error de red al enviar:', error);
+            alert('Error de conexión. Verifique su internet e intente nuevamente.');
         }
     } else {
         alert('Modo desarrollo: Los datos se imprimieron en consola.\n\nConfigura GOOGLE_SCRIPT_URL para enviar a Google Sheets.');

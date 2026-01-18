@@ -76,7 +76,25 @@ function doPost(e) {
     const arqueoId = Utilities.getUuid().substring(0, 8);
     
     // 1. Guardar en Arqueos
-    const sheetArqueos = ss.getSheetByName(SHEET_ARQUEOS);
+    let sheetArqueos = ss.getSheetByName(SHEET_ARQUEOS);
+    
+    // Si no existe la hoja, crearla con encabezados
+    if (!sheetArqueos) {
+      sheetArqueos = ss.insertSheet(SHEET_ARQUEOS);
+    }
+    
+    // Verificar si tiene encabezados (primera fila)
+    const primeraFila = sheetArqueos.getRange(1, 1).getValue();
+    if (!primeraFila || primeraFila === '') {
+      sheetArqueos.getRange(1, 1, 1, 16).setValues([[
+        'ID', 'Timestamp', 'Vendedor', 'Fecha', 'Día', 
+        'Venta Bruta', 'Descuentos', 'Venta Total',
+        'Total Cobrado', 'Total Venta Crédito', 'Total Gastos',
+        'Total Efectivo', 'Efectivo Entregado', 'QR Entregado', 'Diferencia', 'Telegram ID'
+      ]]);
+      sheetArqueos.getRange(1, 1, 1, 16).setFontWeight('bold');
+    }
+    
     sheetArqueos.appendRow([
       arqueoId,
       datos.timestamp,
