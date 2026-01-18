@@ -848,3 +848,27 @@ body {
 .btn-visitas:hover {
     box-shadow: 0 6px 25px rgba(79, 70, 229, 0.5);
 }
+
+/* ===== Créditos Bloqueados ===== */
+.locked-row {
+    opacity: 0.7;
+    background: rgba(0, 0, 0, 0.2);
+}
+
+.locked-row input {
+    cursor: not-allowed;
+}
+
+.locked-icon {
+    font-size: 1rem;
+    display: inline-block;
+    text-align: center;
+    width: 100%;
+}
+
+/* ===== Formulario Deshabilitado ===== */
+#form-arqueo input:disabled,
+#form-arqueo button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}

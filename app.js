@@ -182,10 +182,11 @@ async function cargarArqueoExistente() {
     }
 
     try {
-        const fechaHoy = formatearFecha(document.getElementById('fecha').value);
-        const url = `${GOOGLE_SCRIPT_URL_ARQUEO}?action=arqueo&vendedor=${encodeURIComponent(vendedorUsername)}&fecha=${encodeURIComponent(fechaHoy)}`;
+        const fechaSeleccionada = document.getElementById('fecha').value;
+        const fechaFormateada = formatearFecha(fechaSeleccionada);
+        const url = `${GOOGLE_SCRIPT_URL_ARQUEO}?action=arqueo&vendedor=${encodeURIComponent(vendedorUsername)}&fecha=${encodeURIComponent(fechaFormateada)}`;
 
-        console.log('Buscando arqueo existente:', vendedorUsername, fechaHoy);
+        console.log('Buscando arqueo existente:', vendedorUsername, fechaFormateada);
 
         const response = await fetch(url);
         const data = await response.json();
@@ -193,25 +194,125 @@ async function cargarArqueoExistente() {
         console.log('Respuesta arqueo:', data);
 
         if (data.success && data.existe) {
-            modoEdicion = true;
             const arqueo = data.arqueo;
 
-            // Rellenar formulario con datos existentes
-            document.getElementById('venta-bruta').value = formatMoney(arqueo.ventaBruta);
-            document.getElementById('descuentos').value = formatMoney(arqueo.descuentos);
-            document.getElementById('efectivo-entregado').value = formatMoney(arqueo.efectivoEntregado);
-            document.getElementById('qr-entregado').value = formatMoney(arqueo.qrEntregado);
+            // Verificar si es el día actual para permitir edición
+            const hoy = new Date();
+            const fechaHoyStr = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-${String(hoy.getDate()).padStart(2, '0')}`;
+            const esHoy = fechaSeleccionada === fechaHoyStr;
 
-            // Actualizar cálculos
-            calcularTodo();
+            if (esHoy) {
+                modoEdicion = true;
 
-            // Cambiar texto del botón
-            actualizarBotonEnviar();
+                // Rellenar formulario con datos existentes
+                document.getElementById('venta-bruta').value = formatMoney(arqueo.ventaBruta);
+                document.getElementById('descuentos').value = formatMoney(arqueo.descuentos);
+                document.getElementById('efectivo-entregado').value = formatMoney(arqueo.efectivoEntregado);
+                document.getElementById('qr-entregado').value = formatMoney(arqueo.qrEntregado);
 
-            console.log('Arqueo cargado para edición');
+                // Cargar gastos
+                if (arqueo.gastos && arqueo.gastos.length > 0) {
+                    // Limpiar gastos existentes (excepto los fijos)
+                    const container = document.getElementById('gastos-container');
+                    const gastosRows = container.querySelectorAll('.gasto-row');
+
+                    // Primero llenar los gastos fijos (Combustible, Peaje)
+                    const gastosFijos = ['Combustible', 'Peaje'];
+                    gastosRows.forEach(row => {
+                        const labelEl = row.querySelector('label');
+                        if (labelEl) {
+                            const nombreFijo = labelEl.textContent;
+                            const gastoMatch = arqueo.gastos.find(g => g.nombre === nombreFijo);
+                            if (gastoMatch) {
+                                row.querySelector('.gasto-input').value = formatMoney(gastoMatch.monto);
+                            }
+                        }
+                    });
+
+                    // Añadir gastos adicionales
+                    arqueo.gastos.forEach(gasto => {
+                        if (!gastosFijos.includes(gasto.nombre) && gasto.monto > 0) {
+                            addGastoRow();
+                            const nuevaFila = container.lastElementChild;
+                            nuevaFila.querySelector('.gasto-nombre').value = gasto.nombre;
+                            nuevaFila.querySelector('.gasto-input').value = formatMoney(gasto.monto);
+                        }
+                    });
+                }
+
+                // Cargar créditos
+                if (arqueo.creditos && arqueo.creditos.length > 0) {
+                    // Limpiar créditos existentes
+                    document.getElementById('creditos-body').innerHTML = '';
+                    creditoIdCounter = 0;
+
+                    arqueo.creditos.forEach(credito => {
+                        addCreditoRow({
+                            codigo: credito.codigo,
+                            saldo: credito.saldo,
+                            cobrado: credito.cobrado,
+                            ventaCredito: credito.ventaCredito,
+                            locked: true
+                        });
+                    });
+                }
+
+                // Actualizar cálculos y botón
+                calcularTodo();
+                actualizarBotonEnviar();
+                habilitarFormulario(true);
+
+                console.log('Arqueo cargado para edición');
+            } else {
+                // Es fecha pasada - mostrar datos pero bloquear edición
+                modoEdicion = false;
+                document.getElementById('venta-bruta').value = formatMoney(arqueo.ventaBruta);
+                document.getElementById('descuentos').value = formatMoney(arqueo.descuentos);
+                document.getElementById('efectivo-entregado').value = formatMoney(arqueo.efectivoEntregado);
+                document.getElementById('qr-entregado').value = formatMoney(arqueo.qrEntregado);
+                calcularTodo();
+                habilitarFormulario(false);
+                actualizarBotonEnviar();
+                console.log('Arqueo de fecha pasada - solo lectura');
+            }
+        } else {
+            // No existe arqueo, verificar si es fecha pasada
+            const hoy = new Date();
+            const fechaHoyStr = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-${String(hoy.getDate()).padStart(2, '0')}`;
+
+            if (fechaSeleccionada < fechaHoyStr) {
+                habilitarFormulario(false);
+            } else {
+                habilitarFormulario(true);
+            }
         }
     } catch (error) {
         console.error('Error cargando arqueo existente:', error);
+    }
+}
+
+// Habilitar/deshabilitar formulario
+function habilitarFormulario(habilitar) {
+    const inputs = document.querySelectorAll('#form-arqueo input');
+    const buttons = document.querySelectorAll('#form-arqueo button');
+    const btnEnviar = document.getElementById('btn-enviar');
+
+    inputs.forEach(input => input.disabled = !habilitar);
+    buttons.forEach(btn => {
+        if (btn !== btnEnviar) btn.disabled = !habilitar;
+    });
+
+    if (btnEnviar) {
+        btnEnviar.disabled = !habilitar;
+        btnEnviar.style.opacity = habilitar ? '1' : '0.5';
+    }
+
+    if (tg) {
+        if (habilitar) {
+            tg.MainButton.show();
+        } else {
+            tg.MainButton.hide();
+        }
     }
 }
 
@@ -507,6 +608,8 @@ function addCreditoRow(data = {}) {
 
     const tr = document.createElement('tr');
     tr.dataset.creditoId = id;
+    tr.classList.toggle('locked-row', isLocked);
+
     tr.innerHTML = `
         <td>
             <input type="text" 
@@ -523,43 +626,44 @@ function addCreditoRow(data = {}) {
         </td>
         <td>
             <input type="text" 
-                   class="cobrado-input" 
+                   class="cobrado-input ${isLocked ? 'readonly' : ''}" 
                    inputmode="decimal"
                    value="${data.cobrado ? formatMoney(data.cobrado) : ''}" 
-                   placeholder="0,00">
+                   placeholder="0,00"
+                   ${isLocked ? 'readonly' : ''}>
         </td>
         <td>
             <input type="text" 
-                   class="venta-credito-input" 
+                   class="venta-credito-input ${isLocked ? 'readonly' : ''}" 
                    inputmode="decimal"
                    value="${data.ventaCredito ? formatMoney(data.ventaCredito) : ''}" 
-                   placeholder="0,00">
+                   placeholder="0,00"
+                   ${isLocked ? 'readonly' : ''}>
         </td>
         <td>
-            <button type="button" class="btn-remove ${isLocked ? 'locked' : ''}" 
-                    ${isLocked ? 'disabled' : ''}>×</button>
+            ${isLocked ? '<span class="locked-icon">🔒</span>' : '<button type="button" class="btn-remove">×</button>'}
         </td>
     `;
 
     tbody.appendChild(tr);
 
-    const cobradoInput = tr.querySelector('.cobrado-input');
-    const ventaCreditoInput = tr.querySelector('.venta-credito-input');
-    const removeBtn = tr.querySelector('.btn-remove');
-
-    [cobradoInput, ventaCreditoInput].forEach(input => {
-        input.addEventListener('input', (e) => {
-            handleMoneyInput(e.target);
-            calcularTodo();
-        });
-        input.addEventListener('blur', (e) => {
-            if (e.target.value) {
-                e.target.value = formatMoney(parseMoney(e.target.value));
-            }
-        });
-    });
-
     if (!isLocked) {
+        const cobradoInput = tr.querySelector('.cobrado-input');
+        const ventaCreditoInput = tr.querySelector('.venta-credito-input');
+        const removeBtn = tr.querySelector('.btn-remove');
+
+        [cobradoInput, ventaCreditoInput].forEach(input => {
+            input.addEventListener('input', (e) => {
+                handleMoneyInput(e.target);
+                calcularTodo();
+            });
+            input.addEventListener('blur', (e) => {
+                if (e.target.value) {
+                    e.target.value = formatMoney(parseMoney(e.target.value));
+                }
+            });
+        });
+
         removeBtn.addEventListener('click', () => {
             tr.remove();
             calcularTodo();

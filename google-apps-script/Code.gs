@@ -99,7 +99,17 @@ function doPost(e) {
     for (let i = 1; i < allData.length; i++) {
       // Columna 16 (índice 15) = Telegram ID, Columna 4 (índice 3) = Fecha
       const telegramId = String(allData[i][15]);
-      const fechaRow = String(allData[i][3]);
+      
+      // Normalizar fecha de la fila
+      let fechaRow = allData[i][3];
+      if (fechaRow instanceof Date) {
+        const d = fechaRow.getDate();
+        const m = fechaRow.getMonth() + 1;
+        const y = String(fechaRow.getFullYear()).slice(-2);
+        fechaRow = `${d}-${m}-${y}`;
+      } else {
+        fechaRow = String(fechaRow);
+      }
       
       if (telegramId === String(datos.telegramUserId) && fechaRow === String(datos.fecha)) {
         filaExistente = i + 1; // +1 porque getRange es 1-indexed
@@ -212,14 +222,58 @@ function doGet(e) {
       for (let i = 1; i < data.length; i++) {
         // Columna 16 (índice 15) = Telegram ID, Columna 4 (índice 3) = Fecha
         const telegramId = String(data[i][15]);
-        const fechaRow = String(data[i][3]);
+        
+        // Normalizar fecha de la fila (puede ser Date object)
+        let fechaRow = data[i][3];
+        if (fechaRow instanceof Date) {
+          const d = fechaRow.getDate();
+          const m = fechaRow.getMonth() + 1;
+          const y = String(fechaRow.getFullYear()).slice(-2);
+          fechaRow = `${d}-${m}-${y}`;
+        } else {
+          fechaRow = String(fechaRow);
+        }
         
         if (telegramId === String(vendedor) && fechaRow === String(fecha)) {
+          const arqueoId = data[i][0];
+          
+          // Buscar gastos asociados
+          const gastosSheet = ss.getSheetByName(SHEET_GASTOS);
+          const gastos = [];
+          if (gastosSheet) {
+            const gastosData = gastosSheet.getDataRange().getValues();
+            for (let j = 1; j < gastosData.length; j++) {
+              if (gastosData[j][0] === arqueoId) {
+                gastos.push({
+                  nombre: gastosData[j][1],
+                  monto: gastosData[j][2]
+                });
+              }
+            }
+          }
+          
+          // Buscar créditos asociados
+          const creditosSheet = ss.getSheetByName(SHEET_CREDITOS);
+          const creditos = [];
+          if (creditosSheet) {
+            const creditosData = creditosSheet.getDataRange().getValues();
+            for (let j = 1; j < creditosData.length; j++) {
+              if (creditosData[j][0] === arqueoId) {
+                creditos.push({
+                  codigo: creditosData[j][1],
+                  saldo: creditosData[j][2],
+                  cobrado: creditosData[j][3],
+                  ventaCredito: creditosData[j][4]
+                });
+              }
+            }
+          }
+          
           return ContentService.createTextOutput(JSON.stringify({
             success: true,
             existe: true,
             arqueo: {
-              id: data[i][0],
+              id: arqueoId,
               timestamp: data[i][1],
               vendedor: data[i][2],
               fecha: data[i][3],
@@ -233,7 +287,9 @@ function doGet(e) {
               totalEfectivo: data[i][11],
               efectivoEntregado: data[i][12],
               qrEntregado: data[i][13],
-              diferencia: data[i][14]
+              diferencia: data[i][14],
+              gastos: gastos,
+              creditos: creditos
             }
           })).setMimeType(ContentService.MimeType.JSON);
         }
