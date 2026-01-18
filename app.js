@@ -105,7 +105,12 @@ function initFecha() {
     const fechaInput = document.getElementById('fecha');
     const hoy = new Date();
 
-    fechaInput.valueAsDate = hoy;
+    // Usar formato local YYYY-MM-DD para evitar problemas de zona horaria
+    const anio = hoy.getFullYear();
+    const mes = String(hoy.getMonth() + 1).padStart(2, '0');
+    const dia = String(hoy.getDate()).padStart(2, '0');
+    fechaInput.value = `${anio}-${mes}-${dia}`;
+
     actualizarDiaSemana(hoy);
 
     fechaInput.addEventListener('change', (e) => {
