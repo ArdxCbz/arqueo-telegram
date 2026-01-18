@@ -34,10 +34,11 @@ function initTelegram() {
         tg.ready();
         tg.expand();
 
-        // Obtener nombre del usuario de Telegram
+        // Obtener datos del usuario de Telegram
         const user = tg.initDataUnsafe?.user;
-        // Usar first_name como identificador del vendedor (debe coincidir con nombre de hoja en Google Sheets)
-        vendedorUsername = user?.first_name || 'Usuario';
+        // Usar user.id como identificador del vendedor (único y estable)
+        // La hoja en Google Sheets debe llamarse con este ID (ej: "8175221")
+        vendedorUsername = user?.id ? String(user.id) : 'Usuario';
         const nombreCompleto = user ? (user.first_name + (user.last_name ? ' ' + user.last_name : '')) : 'Usuario';
 
         document.getElementById('vendedor-nombre').textContent = nombreCompleto;
