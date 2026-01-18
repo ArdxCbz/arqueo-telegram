@@ -252,7 +252,7 @@ async function cargarArqueoExistente() {
                             saldo: credito.saldo,
                             cobrado: credito.cobrado,
                             ventaCredito: credito.ventaCredito,
-                            locked: true
+                            locked: false // Día actual: editables
                         });
                     });
                 }
