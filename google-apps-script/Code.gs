@@ -72,18 +72,14 @@ function doPost(e) {
     const datos = JSON.parse(e.postData.contents);
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     
-    // Generar ID único
-    const arqueoId = Utilities.getUuid().substring(0, 8);
-    
-    // 1. Guardar en Arqueos
+    // 1. Obtener o crear hoja Arqueos
     let sheetArqueos = ss.getSheetByName(SHEET_ARQUEOS);
     
-    // Si no existe la hoja, crearla con encabezados
     if (!sheetArqueos) {
       sheetArqueos = ss.insertSheet(SHEET_ARQUEOS);
     }
     
-    // Verificar si tiene encabezados (primera fila)
+    // Verificar si tiene encabezados
     const primeraFila = sheetArqueos.getRange(1, 1).getValue();
     if (!primeraFila || primeraFila === '') {
       sheetArqueos.getRange(1, 1, 1, 16).setValues([[
@@ -95,8 +91,22 @@ function doPost(e) {
       sheetArqueos.getRange(1, 1, 1, 16).setFontWeight('bold');
     }
     
-    sheetArqueos.appendRow([
-      arqueoId,
+    // 2. Verificar si ya existe arqueo de este vendedor para esta fecha
+    const allData = sheetArqueos.getDataRange().getValues();
+    let filaExistente = -1;
+    let arqueoId = '';
+    
+    for (let i = 1; i < allData.length; i++) {
+      // Columna 3 = Vendedor, Columna 4 = Fecha
+      if (allData[i][2] === datos.vendedor && allData[i][3] === datos.fecha) {
+        filaExistente = i + 1; // +1 porque getRange es 1-indexed
+        arqueoId = allData[i][0];
+        break;
+      }
+    }
+    
+    const nuevaFila = [
+      arqueoId || Utilities.getUuid().substring(0, 8),
       datos.timestamp,
       datos.vendedor,
       datos.fecha,
@@ -112,7 +122,17 @@ function doPost(e) {
       datos.qrEntregado,
       datos.diferencia,
       datos.telegramUserId || ''
-    ]);
+    ];
+    
+    if (filaExistente > 0) {
+      // Actualizar registro existente
+      sheetArqueos.getRange(filaExistente, 1, 1, 16).setValues([nuevaFila]);
+      arqueoId = nuevaFila[0];
+    } else {
+      // Crear nuevo registro
+      arqueoId = nuevaFila[0];
+      sheetArqueos.appendRow(nuevaFila);
+    }
     
     // 2. Guardar Créditos
     if (datos.creditos && datos.creditos.length > 0) {
@@ -170,6 +190,53 @@ function doGet(e) {
   try {
     const action = e.parameter.action || 'clientes';
     const ss = SpreadsheetApp.getActiveSpreadsheet();
+    
+    // Obtener arqueo del día para un vendedor
+    if (action === 'arqueo') {
+      const vendedor = e.parameter.vendedor;
+      const fecha = e.parameter.fecha;
+      
+      const sheet = ss.getSheetByName(SHEET_ARQUEOS);
+      if (!sheet) {
+        return ContentService.createTextOutput(JSON.stringify({
+          success: true,
+          existe: false
+        })).setMimeType(ContentService.MimeType.JSON);
+      }
+      
+      const data = sheet.getDataRange().getValues();
+      
+      for (let i = 1; i < data.length; i++) {
+        if (String(data[i][2]) === String(vendedor) && data[i][3] === fecha) {
+          return ContentService.createTextOutput(JSON.stringify({
+            success: true,
+            existe: true,
+            arqueo: {
+              id: data[i][0],
+              timestamp: data[i][1],
+              vendedor: data[i][2],
+              fecha: data[i][3],
+              dia: data[i][4],
+              ventaBruta: data[i][5],
+              descuentos: data[i][6],
+              ventaTotal: data[i][7],
+              totalCobrado: data[i][8],
+              totalVentaCredito: data[i][9],
+              totalGastos: data[i][10],
+              totalEfectivo: data[i][11],
+              efectivoEntregado: data[i][12],
+              qrEntregado: data[i][13],
+              diferencia: data[i][14]
+            }
+          })).setMimeType(ContentService.MimeType.JSON);
+        }
+      }
+      
+      return ContentService.createTextOutput(JSON.stringify({
+        success: true,
+        existe: false
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
     
     if (action === 'clientes') {
       const sheet = ss.getSheetByName(SHEET_CLIENTES);

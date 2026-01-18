@@ -12,6 +12,7 @@ let currentTab = 'arqueo';
 let currentDiaIndex = 0;
 let clientesDelDia = [];
 let vendedorUsername = '';
+let modoEdicion = false; // true si ya existe arqueo del día
 
 // Días de la semana
 const DIAS_SEMANA = ['DOMINGO', 'LUNES', 'MARTES', 'MIÉRCOLES', 'JUEVES', 'VIERNES', 'SÁBADO'];
@@ -26,6 +27,11 @@ document.addEventListener('DOMContentLoaded', () => {
     initVisitas();
     addCreditoRow();
     calcularTodo();
+
+    // Cargar arqueo existente después de un pequeño delay para asegurar que vendedorUsername esté listo
+    setTimeout(() => {
+        cargarArqueoExistente();
+    }, 500);
 });
 
 // ===== Telegram Integration =====
@@ -59,6 +65,10 @@ function initTelegram() {
                 guardarVisitas();
             }
         });
+
+        // Ocultar botones HTML ya que Telegram usa MainButton
+        document.getElementById('btn-enviar').style.display = 'none';
+        document.getElementById('btn-guardar-visitas').style.display = 'none';
     } else {
         // Modo desarrollo sin Telegram
         vendedorUsername = 'ModoDesarrollo';
@@ -148,6 +158,58 @@ function getTimestampLocal() {
     const min = String(now.getMinutes()).padStart(2, '0');
     const seg = String(now.getSeconds()).padStart(2, '0');
     return `${dia}/${mes}/${anio} ${hora}:${min}:${seg}`;
+}
+
+// Cargar arqueo existente del día
+async function cargarArqueoExistente() {
+    if (GOOGLE_SCRIPT_URL_ARQUEO === 'YOUR_GOOGLE_SCRIPT_URL_HERE') {
+        return; // Modo desarrollo
+    }
+
+    try {
+        const fechaHoy = formatearFecha(document.getElementById('fecha').value);
+        const url = `${GOOGLE_SCRIPT_URL_ARQUEO}?action=arqueo&vendedor=${encodeURIComponent(vendedorUsername)}&fecha=${encodeURIComponent(fechaHoy)}`;
+
+        console.log('Buscando arqueo existente:', vendedorUsername, fechaHoy);
+
+        const response = await fetch(url);
+        const data = await response.json();
+
+        console.log('Respuesta arqueo:', data);
+
+        if (data.success && data.existe) {
+            modoEdicion = true;
+            const arqueo = data.arqueo;
+
+            // Rellenar formulario con datos existentes
+            document.getElementById('venta-bruta').value = formatMoney(arqueo.ventaBruta);
+            document.getElementById('descuentos').value = formatMoney(arqueo.descuentos);
+            document.getElementById('efectivo-entregado').value = formatMoney(arqueo.efectivoEntregado);
+            document.getElementById('qr-entregado').value = formatMoney(arqueo.qrEntregado);
+
+            // Actualizar cálculos
+            calcularTodo();
+
+            // Cambiar texto del botón
+            actualizarBotonEnviar();
+
+            console.log('Arqueo cargado para edición');
+        }
+    } catch (error) {
+        console.error('Error cargando arqueo existente:', error);
+    }
+}
+
+// Actualizar texto del botón según modo
+function actualizarBotonEnviar() {
+    const btnHtml = document.getElementById('btn-enviar');
+    if (modoEdicion) {
+        if (btnHtml) btnHtml.textContent = 'Actualizar Arqueo';
+        if (tg) tg.MainButton.setText('Actualizar Arqueo');
+    } else {
+        if (btnHtml) btnHtml.textContent = 'Enviar Arqueo';
+        if (tg) tg.MainButton.setText('Enviar Arqueo');
+    }
 }
 
 // ===== Visitas =====
