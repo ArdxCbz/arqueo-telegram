@@ -128,7 +128,22 @@ function initFecha() {
     fechaInput.addEventListener('change', (e) => {
         const fecha = new Date(e.target.value + 'T12:00:00');
         actualizarDiaSemana(fecha);
+
+        // Limpiar formulario y buscar arqueo existente para la nueva fecha
+        modoEdicion = false;
+        limpiarFormulario();
+        cargarArqueoExistente();
     });
+}
+
+// Limpiar formulario de arqueo
+function limpiarFormulario() {
+    document.getElementById('venta-bruta').value = '';
+    document.getElementById('descuentos').value = '';
+    document.getElementById('efectivo-entregado').value = '';
+    document.getElementById('qr-entregado').value = '';
+    calcularTodo();
+    actualizarBotonEnviar();
 }
 
 function actualizarDiaSemana(fecha) {
