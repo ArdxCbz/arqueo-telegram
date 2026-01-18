@@ -97,8 +97,11 @@ function doPost(e) {
     let arqueoId = '';
     
     for (let i = 1; i < allData.length; i++) {
-      // Columna 3 = Vendedor, Columna 4 = Fecha
-      if (allData[i][2] === datos.vendedor && allData[i][3] === datos.fecha) {
+      // Columna 16 (índice 15) = Telegram ID, Columna 4 (índice 3) = Fecha
+      const telegramId = String(allData[i][15]);
+      const fechaRow = String(allData[i][3]);
+      
+      if (telegramId === String(datos.telegramUserId) && fechaRow === String(datos.fecha)) {
         filaExistente = i + 1; // +1 porque getRange es 1-indexed
         arqueoId = allData[i][0];
         break;
@@ -207,7 +210,11 @@ function doGet(e) {
       const data = sheet.getDataRange().getValues();
       
       for (let i = 1; i < data.length; i++) {
-        if (String(data[i][2]) === String(vendedor) && data[i][3] === fecha) {
+        // Columna 16 (índice 15) = Telegram ID, Columna 4 (índice 3) = Fecha
+        const telegramId = String(data[i][15]);
+        const fechaRow = String(data[i][3]);
+        
+        if (telegramId === String(vendedor) && fechaRow === String(fecha)) {
           return ContentService.createTextOutput(JSON.stringify({
             success: true,
             existe: true,
