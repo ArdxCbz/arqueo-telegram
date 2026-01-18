@@ -201,6 +201,10 @@ async function cargarArqueoExistente() {
             const fechaHoyStr = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-${String(hoy.getDate()).padStart(2, '0')}`;
             const esHoy = fechaSeleccionada === fechaHoyStr;
 
+            console.log('Fecha seleccionada:', fechaSeleccionada);
+            console.log('Fecha hoy sistema:', fechaHoyStr);
+            console.log('¿Es hoy?:', esHoy);
+
             if (esHoy) {
                 modoEdicion = true;
 
