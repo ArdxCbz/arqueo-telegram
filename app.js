@@ -328,7 +328,7 @@ async function guardarVisitas() {
         diaProgramado: DIAS_CORTOS[currentDiaIndex],
         diaReal: DIAS_CORTOS[hoy.getDay()],
         visitas: visitas,
-        timestamp: new Date().toISOString(),
+        timestamp: getTimestampLocal(),
         telegramUserId: tg?.initDataUnsafe?.user?.id || null
     };
 
@@ -336,21 +336,23 @@ async function guardarVisitas() {
 
     if (GOOGLE_SCRIPT_URL_VISITAS !== 'YOUR_GOOGLE_SCRIPT_URL_VISITAS_HERE') {
         try {
+            // Con mode: 'no-cors' no podemos leer la respuesta
             await fetch(GOOGLE_SCRIPT_URL_VISITAS, {
                 method: 'POST',
                 mode: 'no-cors',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'text/plain' },
                 body: JSON.stringify(datos)
             });
 
+            // Con no-cors, asumimos éxito si no hubo error de red
             if (tg) {
                 tg.showAlert('¡Visitas guardadas correctamente!');
             } else {
                 alert('¡Visitas guardadas correctamente!');
             }
         } catch (error) {
-            console.error('Error al guardar visitas:', error);
-            alert('Error al guardar las visitas. Intente nuevamente.');
+            console.error('Error de red al guardar visitas:', error);
+            alert('Error de conexión. Verifique su internet e intente nuevamente.');
         }
     } else {
         alert('Modo desarrollo: Los datos de visitas se imprimieron en consola.');
