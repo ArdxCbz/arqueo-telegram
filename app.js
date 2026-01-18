@@ -11,6 +11,7 @@ let gastoIdCounter = 0;
 let currentTab = 'arqueo';
 let currentDiaIndex = 0;
 let clientesDelDia = [];
+let clientesConDeuda = []; // Caché de clientes con saldo pendiente
 let vendedorUsername = '';
 let modoEdicion = false; // true si ya existe arqueo del día
 
@@ -27,12 +28,29 @@ document.addEventListener('DOMContentLoaded', () => {
     initVisitas();
     addCreditoRow();
     calcularTodo();
+    cargarClientesConDeuda();
 
     // Cargar arqueo existente después de un pequeño delay para asegurar que vendedorUsername esté listo
     setTimeout(() => {
         cargarArqueoExistente();
     }, 500);
 });
+
+// Cargar clientes con deuda desde Google Sheets
+async function cargarClientesConDeuda() {
+    if (GOOGLE_SCRIPT_URL_ARQUEO === 'YOUR_GOOGLE_SCRIPT_URL_HERE') return;
+
+    try {
+        const response = await fetch(`${GOOGLE_SCRIPT_URL_ARQUEO}?action=clientes`);
+        const data = await response.json();
+        if (data.success) {
+            clientesConDeuda = data.clientes;
+            console.log('Clientes con deuda cargados:', clientesConDeuda.length);
+        }
+    } catch (error) {
+        console.error('Error cargando clientes con deuda:', error);
+    }
+}
 
 // ===== Telegram Integration =====
 function initTelegram() {
@@ -605,6 +623,7 @@ function initEventListeners() {
 }
 
 // ===== Créditos =====
+// ===== Créditos =====
 function addCreditoRow(data = {}) {
     const tbody = document.getElementById('creditos-body');
     const id = ++creditoIdCounter;
@@ -652,9 +671,41 @@ function addCreditoRow(data = {}) {
     tbody.appendChild(tr);
 
     if (!isLocked) {
+        const codigoInput = tr.querySelector('.codigo-input');
+        const saldoInput = tr.querySelector('.saldo-input');
         const cobradoInput = tr.querySelector('.cobrado-input');
         const ventaCreditoInput = tr.querySelector('.venta-credito-input');
         const removeBtn = tr.querySelector('.btn-remove');
+
+        // Listener para búsqueda de cliente por código
+        codigoInput.addEventListener('blur', (e) => {
+            const codigo = e.target.value.trim().toUpperCase();
+            if (codigo) {
+                // 1. Validar duplicados en la tabla actual
+                const filas = document.querySelectorAll('#creditos-body tr');
+                let duplicado = false;
+                filas.forEach(fila => {
+                    if (fila !== tr && fila.querySelector('.codigo-input').value.toUpperCase() === codigo) {
+                        duplicado = true;
+                    }
+                });
+
+                if (duplicado) {
+                    alert('Este cliente ya está en la lista');
+                    e.target.value = '';
+                    saldoInput.value = formatMoney(0);
+                    return;
+                }
+
+                // 2. Buscar saldo del cliente
+                const cliente = clientesConDeuda.find(c => String(c.codigo).toUpperCase() === codigo);
+                if (cliente) {
+                    saldoInput.value = formatMoney(cliente.saldo);
+                } else {
+                    saldoInput.value = formatMoney(0); // Cliente nuevo o sin deuda
+                }
+            }
+        });
 
         [cobradoInput, ventaCreditoInput].forEach(input => {
             input.addEventListener('input', (e) => {
@@ -702,16 +753,16 @@ function addGastoRow() {
     div.className = 'gasto-row';
     div.dataset.gastoId = id;
     div.innerHTML = `
-        <input type="text" class="gasto-nombre" placeholder="Nombre del gasto" style="
-            flex: 1;
-            background: var(--bg-input);
-            border: 1px solid var(--border-color);
-            border-radius: 8px;
-            padding: 12px;
-            color: var(--text-primary);
-            font-size: 0.95rem;
-        ">
-        <div class="input-money">
+        < input type = "text" class="gasto-nombre" placeholder = "Nombre del gasto" style = "
+    flex: 1;
+    background: var(--bg - input);
+    border: 1px solid var(--border - color);
+    border - radius: 8px;
+    padding: 12px;
+    color: var(--text - primary);
+    font - size: 0.95rem;
+    ">
+        < div class="input-money" >
             <input type="text" class="gasto-input" inputmode="decimal" placeholder="0,00">
             <span class="currency">Bs</span>
         </div>
