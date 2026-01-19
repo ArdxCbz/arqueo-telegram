@@ -2,8 +2,8 @@
 const tg = window.Telegram?.WebApp;
 
 // ===== Configuration =====
-const GOOGLE_SCRIPT_URL_ARQUEO = 'https://script.google.com/macros/s/AKfycbwreVuOLQt1N36KJDF8oY9Vzc3F0WNAOzg5GIQxyU2nHH5HEOTDY0HB6GcFgJ9eqy9-FA/exec'; // Arqueo
-const GOOGLE_SCRIPT_URL_VISITAS = 'https://script.google.com/macros/s/AKfycbzfit8INhfzVrXKKC5aD67dI_emDSL4vSvryc3pacnB1CnsKMzVKTNdBIKPji3nAd2cXA/exec'; // Visitas
+// Backend: Supabase (configurado en supabase-client.js)
+let telegramUserId = null;
 
 // ===== State =====
 let creditoIdCounter = 0;
@@ -36,17 +36,16 @@ document.addEventListener('DOMContentLoaded', () => {
     }, 500);
 });
 
-// Cargar clientes con deuda desde Google Sheets
+// Cargar clientes con deuda desde Supabase
 async function cargarClientesConDeuda() {
-    if (GOOGLE_SCRIPT_URL_ARQUEO === 'YOUR_GOOGLE_SCRIPT_URL_HERE') return;
+    if (!supabase) {
+        console.log('Supabase no inicializado, esperando...');
+        return;
+    }
 
     try {
-        const response = await fetch(`${GOOGLE_SCRIPT_URL_ARQUEO}?action=clientes`);
-        const data = await response.json();
-        if (data.success) {
-            clientesConDeuda = data.clientes;
-            console.log('Clientes con deuda cargados:', clientesConDeuda.length);
-        }
+        clientesConDeuda = await getClientesConDeuda();
+        console.log('Clientes con deuda cargados:', clientesConDeuda.length);
     } catch (error) {
         console.error('Error cargando clientes con deuda:', error);
     }
@@ -54,6 +53,9 @@ async function cargarClientesConDeuda() {
 
 // ===== Telegram Integration =====
 function initTelegram() {
+    // Inicializar Supabase
+    initSupabase();
+
     if (tg) {
         tg.ready();
         tg.expand();
@@ -61,12 +63,17 @@ function initTelegram() {
         // Obtener datos del usuario de Telegram
         const user = tg.initDataUnsafe?.user;
         // Usar user.id como identificador del vendedor (único y estable)
-        // La hoja en Google Sheets debe llamarse con este ID (ej: "8175221")
+        telegramUserId = user?.id || null;
         vendedorUsername = user?.id ? String(user.id) : 'Usuario';
         const nombreCompleto = user ? (user.first_name + (user.last_name ? ' ' + user.last_name : '')) : 'Usuario';
 
         document.getElementById('vendedor-nombre').textContent = nombreCompleto;
         document.getElementById('vendedor-nombre-visitas').textContent = nombreCompleto;
+
+        // Registrar vendedor en Supabase
+        if (telegramUserId && supabase) {
+            getOrCreateVendedor(telegramUserId, nombreCompleto);
+        }
 
         // Aplicar tema de Telegram
         if (tg.colorScheme === 'light') {
@@ -89,6 +96,7 @@ function initTelegram() {
         document.getElementById('btn-guardar-visitas').style.display = 'none';
     } else {
         // Modo desarrollo sin Telegram
+        telegramUserId = 123456789; // ID de prueba
         vendedorUsername = 'ModoDesarrollo';
         document.getElementById('vendedor-nombre').textContent = 'Modo Desarrollo';
         document.getElementById('vendedor-nombre-visitas').textContent = 'Modo Desarrollo';
@@ -193,27 +201,23 @@ function getTimestampLocal() {
     return `${dia}/${mes}/${anio} ${hora}:${min}:${seg}`;
 }
 
-// Cargar arqueo existente del día
+// Cargar arqueo existente del día (Supabase)
 async function cargarArqueoExistente() {
-    if (GOOGLE_SCRIPT_URL_ARQUEO === 'YOUR_GOOGLE_SCRIPT_URL_HERE') {
-        return; // Modo desarrollo
+    if (!supabase || !telegramUserId) {
+        console.log('Supabase o telegramUserId no disponible');
+        return;
     }
 
     try {
-        const fechaSeleccionada = document.getElementById('fecha').value;
-        const fechaFormateada = formatearFecha(fechaSeleccionada);
-        const url = `${GOOGLE_SCRIPT_URL_ARQUEO}?action=arqueo&vendedor=${encodeURIComponent(vendedorUsername)}&fecha=${encodeURIComponent(fechaFormateada)}`;
+        const fechaSeleccionada = document.getElementById('fecha').value; // YYYY-MM-DD
 
-        console.log('Buscando arqueo existente:', vendedorUsername, fechaFormateada);
+        console.log('Buscando arqueo existente:', telegramUserId, fechaSeleccionada);
 
-        const response = await fetch(url);
-        const data = await response.json();
+        const arqueo = await getArqueoDelDia(telegramUserId, fechaSeleccionada);
 
-        console.log('Respuesta arqueo:', data);
+        console.log('Respuesta arqueo:', arqueo);
 
-        if (data.success && data.existe) {
-            const arqueo = data.arqueo;
-
+        if (arqueo) {
             // Verificar si es el día actual para permitir edición
             const hoy = new Date();
             const fechaHoyStr = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-${String(hoy.getDate()).padStart(2, '0')}`;
@@ -227,14 +231,13 @@ async function cargarArqueoExistente() {
                 modoEdicion = true;
 
                 // Rellenar formulario con datos existentes
-                document.getElementById('venta-bruta').value = formatMoney(arqueo.ventaBruta);
+                document.getElementById('venta-bruta').value = formatMoney(arqueo.venta_bruta);
                 document.getElementById('descuentos').value = formatMoney(arqueo.descuentos);
-                document.getElementById('efectivo-entregado').value = formatMoney(arqueo.efectivoEntregado);
-                document.getElementById('qr-entregado').value = formatMoney(arqueo.qrEntregado);
+                document.getElementById('efectivo-entregado').value = formatMoney(arqueo.efectivo_entregado);
+                document.getElementById('qr-entregado').value = formatMoney(arqueo.qr_entregado);
 
                 // Cargar gastos
                 if (arqueo.gastos && arqueo.gastos.length > 0) {
-                    // Limpiar gastos existentes (excepto los fijos)
                     const container = document.getElementById('gastos-container');
                     const gastosRows = container.querySelectorAll('.gasto-row');
 
@@ -244,7 +247,7 @@ async function cargarArqueoExistente() {
                         const labelEl = row.querySelector('label');
                         if (labelEl) {
                             const nombreFijo = labelEl.textContent;
-                            const gastoMatch = arqueo.gastos.find(g => g.nombre === nombreFijo);
+                            const gastoMatch = arqueo.gastos.find(g => g.concepto === nombreFijo);
                             if (gastoMatch) {
                                 row.querySelector('.gasto-input').value = formatMoney(gastoMatch.monto);
                             }
@@ -253,10 +256,10 @@ async function cargarArqueoExistente() {
 
                     // Añadir gastos adicionales
                     arqueo.gastos.forEach(gasto => {
-                        if (!gastosFijos.includes(gasto.nombre) && gasto.monto > 0) {
+                        if (!gastosFijos.includes(gasto.concepto) && gasto.monto > 0) {
                             addGastoRow();
                             const nuevaFila = container.lastElementChild;
-                            nuevaFila.querySelector('.gasto-nombre').value = gasto.nombre;
+                            nuevaFila.querySelector('.gasto-nombre').value = gasto.concepto;
                             nuevaFila.querySelector('.gasto-input').value = formatMoney(gasto.monto);
                         }
                     });
@@ -264,16 +267,15 @@ async function cargarArqueoExistente() {
 
                 // Cargar créditos
                 if (arqueo.creditos && arqueo.creditos.length > 0) {
-                    // Limpiar créditos existentes
                     document.getElementById('creditos-body').innerHTML = '';
                     creditoIdCounter = 0;
 
                     arqueo.creditos.forEach(credito => {
                         addCreditoRow({
-                            codigo: credito.codigo,
-                            saldo: credito.saldo,
+                            codigo: credito.codigo_cliente,
+                            saldo: credito.saldo_anterior,
                             cobrado: credito.cobrado,
-                            ventaCredito: credito.ventaCredito,
+                            ventaCredito: credito.venta_credito,
                             locked: false // Día actual: editables
                         });
                     });
@@ -288,10 +290,10 @@ async function cargarArqueoExistente() {
             } else {
                 // Es fecha pasada - mostrar datos pero bloquear edición
                 modoEdicion = false;
-                document.getElementById('venta-bruta').value = formatMoney(arqueo.ventaBruta);
+                document.getElementById('venta-bruta').value = formatMoney(arqueo.venta_bruta);
                 document.getElementById('descuentos').value = formatMoney(arqueo.descuentos);
-                document.getElementById('efectivo-entregado').value = formatMoney(arqueo.efectivoEntregado);
-                document.getElementById('qr-entregado').value = formatMoney(arqueo.qrEntregado);
+                document.getElementById('efectivo-entregado').value = formatMoney(arqueo.efectivo_entregado);
+                document.getElementById('qr-entregado').value = formatMoney(arqueo.qr_entregado);
                 calcularTodo();
                 habilitarFormulario(false);
                 actualizarBotonEnviar();
@@ -390,9 +392,9 @@ function actualizarDisplayDia() {
 function cargarClientesDelDia() {
     const diaCorto = DIAS_CORTOS[currentDiaIndex];
 
-    // Si hay URL de Google Sheets configurada, cargar desde ahí
-    if (GOOGLE_SCRIPT_URL_VISITAS !== 'YOUR_GOOGLE_SCRIPT_URL_VISITAS_HERE') {
-        cargarClientesDesdeSheets();
+    // Si Supabase está disponible, cargar desde ahí
+    if (supabase && telegramUserId) {
+        cargarClientesDesdeSupabase();
         return;
     }
 
@@ -416,25 +418,17 @@ function cargarClientesDelDia() {
     renderizarClientes();
 }
 
-// Cargar clientes desde Google Sheets
-async function cargarClientesDesdeSheets() {
+// Cargar clientes desde Supabase
+async function cargarClientesDesdeSupabase() {
     try {
         const diaCorto = DIAS_CORTOS[currentDiaIndex];
-        const url = `${GOOGLE_SCRIPT_URL_VISITAS}?action=clientes&vendedor=${encodeURIComponent(vendedorUsername)}&dia=${diaCorto}`;
 
-        console.log('Cargando clientes para:', vendedorUsername, 'día:', diaCorto);
+        console.log('Cargando clientes para:', telegramUserId, 'día:', diaCorto);
 
-        const response = await fetch(url);
-        const data = await response.json();
+        clientesDelDia = await getClientesRuta(telegramUserId, diaCorto);
 
-        console.log('Respuesta de Google Sheets:', data);
+        console.log('Clientes cargados:', clientesDelDia);
 
-        if (data.success) {
-            clientesDelDia = data.clientes || [];
-        } else {
-            console.error('Error del servidor:', data.error);
-            clientesDelDia = [];
-        }
         renderizarClientes();
     } catch (error) {
         console.error('Error cargando clientes:', error);
@@ -508,11 +502,13 @@ function actualizarContadorVisitas() {
 }
 
 async function guardarVisitas() {
+    if (!supabase || !telegramUserId) {
+        alert('Error: No se pudo conectar con la base de datos');
+        return;
+    }
+
     const hoy = new Date();
-    const diaActual = hoy.getDay();
-    const diferencia = currentDiaIndex - diaActual;
-    const fechaSeleccionada = new Date(hoy);
-    fechaSeleccionada.setDate(hoy.getDate() + diferencia);
+    const fechaStr = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-${String(hoy.getDate()).padStart(2, '0')}`;
 
     const visitas = [];
     document.querySelectorAll('.cliente-row').forEach(row => {
@@ -527,34 +523,27 @@ async function guardarVisitas() {
         });
     });
 
-    const datos = {
-        vendedor: vendedorUsername,
-        fecha: formatearFechaCorta(fechaSeleccionada),
-        diaProgramado: DIAS_CORTOS[currentDiaIndex],
-        diaReal: DIAS_CORTOS[hoy.getDay()],
-        visitas: visitas,
-        timestamp: getTimestampLocal(),
-        telegramUserId: tg?.initDataUnsafe?.user?.id || null
+    const visitasData = {
+        telegram_id: telegramUserId,
+        fecha: fechaStr,
+        dia_programado: DIAS_CORTOS[currentDiaIndex],
+        dia_real: DIAS_CORTOS[hoy.getDay()],
+        visitas: visitas
     };
 
-    console.log('Visitas a guardar:', datos);
+    console.log('Visitas a guardar:', visitasData);
 
-    if (GOOGLE_SCRIPT_URL_VISITAS !== 'YOUR_GOOGLE_SCRIPT_URL_VISITAS_HERE') {
-        // Con mode: 'no-cors' los datos se envían pero el navegador bloquea la respuesta
-        fetch(GOOGLE_SCRIPT_URL_VISITAS, {
-            method: 'POST',
-            mode: 'no-cors',
-            headers: { 'Content-Type': 'text/plain' },
-            body: JSON.stringify(datos)
-        }).finally(() => {
-            if (tg) {
-                tg.showAlert('¡Visitas guardadas correctamente!');
-            } else {
-                alert('¡Visitas guardadas correctamente!');
-            }
-        });
-    } else {
-        alert('Modo desarrollo: Los datos de visitas se imprimieron en consola.');
+    try {
+        await guardarHistorialVisitas(visitasData);
+
+        if (tg) {
+            tg.showAlert('¡Visitas guardadas correctamente!');
+        } else {
+            alert('¡Visitas guardadas correctamente!');
+        }
+    } catch (error) {
+        console.error('Error guardando visitas:', error);
+        alert('Error al guardar visitas.');
     }
 }
 
@@ -857,53 +846,69 @@ function calcularTodo() {
     }
 }
 
-// ===== Enviar Arqueo =====
+// ===== Enviar Arqueo (Supabase) =====
 async function enviarArqueo() {
-    const datos = {
-        vendedor: document.getElementById('vendedor-nombre').textContent,
-        fecha: formatearFecha(document.getElementById('fecha').value),
-        dia: document.getElementById('dia-semana').textContent,
-        ventaBruta: parseMoney(document.getElementById('venta-bruta').value),
+    if (!supabase || !telegramUserId) {
+        alert('Error: No se pudo conectar con la base de datos');
+        return;
+    }
+
+    const fechaInput = document.getElementById('fecha').value; // YYYY-MM-DD
+
+    const arqueoData = {
+        telegram_id: telegramUserId,
+        fecha: fechaInput,
+        dia_semana: document.getElementById('dia-semana').textContent,
+        venta_bruta: parseMoney(document.getElementById('venta-bruta').value),
         descuentos: parseMoney(document.getElementById('descuentos').value),
-        ventaTotal: parseMoney(document.getElementById('venta-total').textContent),
-        creditos: getCreditosData(),
-        totalCobrado: parseMoney(document.getElementById('total-cobrado').textContent),
-        totalVentaCredito: parseMoney(document.getElementById('total-venta-credito').textContent),
-        gastos: getGastosData(),
-        totalGastos: parseMoney(document.getElementById('total-gastos').textContent),
-        totalEfectivo: parseMoney(document.getElementById('total-efectivo').textContent),
-        efectivoEntregado: parseMoney(document.getElementById('efectivo-entregado').value),
-        qrEntregado: parseMoney(document.getElementById('qr-entregado').value),
-        diferencia: parseMoney(document.getElementById('diferencia').textContent),
-        timestamp: getTimestampLocal(),
-        telegramUserId: tg?.initDataUnsafe?.user?.id || null
+        venta_total: parseMoney(document.getElementById('venta-total').textContent),
+        total_cobrado: parseMoney(document.getElementById('total-cobrado').textContent),
+        total_venta_credito: parseMoney(document.getElementById('total-venta-credito').textContent),
+        total_gastos: parseMoney(document.getElementById('total-gastos').textContent),
+        total_efectivo: parseMoney(document.getElementById('total-efectivo').textContent),
+        efectivo_entregado: parseMoney(document.getElementById('efectivo-entregado').value),
+        qr_entregado: parseMoney(document.getElementById('qr-entregado').value),
+        diferencia: parseMoney(document.getElementById('diferencia').textContent)
     };
 
-    if (datos.ventaBruta <= 0) {
+    if (arqueoData.venta_bruta <= 0) {
         alert('Por favor ingrese la Venta Bruta');
         return;
     }
 
-    console.log('Datos a enviar:', datos);
+    console.log('Datos a enviar:', arqueoData);
 
-    if (GOOGLE_SCRIPT_URL_ARQUEO !== 'YOUR_GOOGLE_SCRIPT_URL_HERE') {
-        // Con mode: 'no-cors' los datos se envían pero el navegador bloquea la respuesta
-        // Usamos finally para siempre mostrar éxito después de intentar enviar
-        fetch(GOOGLE_SCRIPT_URL_ARQUEO, {
-            method: 'POST',
-            mode: 'no-cors',
-            headers: { 'Content-Type': 'text/plain' },
-            body: JSON.stringify(datos)
-        }).finally(() => {
-            if (tg) {
-                tg.showAlert('¡Arqueo enviado correctamente!', () => {
-                    tg.close();
-                });
-            } else {
-                alert('¡Arqueo enviado correctamente!');
+    try {
+        // 1. Guardar/actualizar arqueo principal
+        const arqueoGuardado = await upsertArqueo(arqueoData);
+        console.log('Arqueo guardado:', arqueoGuardado);
+
+        // 2. Guardar créditos
+        const creditosData = getCreditosData();
+        await guardarCreditos(arqueoGuardado.id, creditosData);
+
+        // 3. Actualizar saldos de clientes
+        for (const credito of creditosData) {
+            if (credito.codigo) {
+                const nuevoSaldo = (credito.saldo || 0) - (credito.cobrado || 0) + (credito.ventaCredito || 0);
+                await actualizarSaldoCliente(credito.codigo, credito.codigo, nuevoSaldo);
             }
-        });
-    } else {
-        alert('Modo desarrollo: Los datos se imprimieron en consola.\n\nConfigura GOOGLE_SCRIPT_URL para enviar a Google Sheets.');
+        }
+
+        // 4. Guardar gastos
+        const gastosData = getGastosData();
+        await guardarGastos(arqueoGuardado.id, gastosData);
+
+        // Éxito
+        if (tg) {
+            tg.showAlert('¡Arqueo guardado correctamente!', () => {
+                tg.close();
+            });
+        } else {
+            alert('¡Arqueo guardado correctamente!');
+        }
+    } catch (error) {
+        console.error('Error guardando arqueo:', error);
+        alert('Error al guardar. Por favor intente nuevamente.');
     }
 }
