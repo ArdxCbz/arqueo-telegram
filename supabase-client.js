@@ -21,7 +21,7 @@ function initSupabase() {
 
 // Obtener arqueo del día
 async function getArqueoDelDia(telegramId, fecha) {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseClient
         .from('arqueos')
         .select(`
             *,
@@ -42,7 +42,7 @@ async function getArqueoDelDia(telegramId, fecha) {
 
 // Guardar o actualizar arqueo
 async function upsertArqueo(arqueoData) {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseClient
         .from('arqueos')
         .upsert(arqueoData, {
             onConflict: 'telegram_id,fecha',
@@ -62,7 +62,7 @@ async function upsertArqueo(arqueoData) {
 // Guardar créditos de un arqueo
 async function guardarCreditos(arqueoId, creditos) {
     // Primero eliminar créditos anteriores de este arqueo
-    await supabase
+    await supabaseClient
         .from('creditos')
         .delete()
         .eq('arqueo_id', arqueoId);
@@ -78,7 +78,7 @@ async function guardarCreditos(arqueoId, creditos) {
             saldo_nuevo: (c.saldo || 0) - (c.cobrado || 0) + (c.ventaCredito || 0)
         }));
 
-        const { error } = await supabase
+        const { error } = await supabaseClient
             .from('creditos')
             .insert(creditosConArqueo);
 
@@ -92,7 +92,7 @@ async function guardarCreditos(arqueoId, creditos) {
 // Guardar gastos de un arqueo
 async function guardarGastos(arqueoId, gastos) {
     // Primero eliminar gastos anteriores de este arqueo
-    await supabase
+    await supabaseClient
         .from('gastos')
         .delete()
         .eq('arqueo_id', arqueoId);
@@ -105,7 +105,7 @@ async function guardarGastos(arqueoId, gastos) {
             monto: g.monto || 0
         }));
 
-        const { error } = await supabase
+        const { error } = await supabaseClient
             .from('gastos')
             .insert(gastosConArqueo);
 
@@ -120,7 +120,7 @@ async function guardarGastos(arqueoId, gastos) {
 
 // Obtener clientes con saldo pendiente
 async function getClientesConDeuda() {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseClient
         .from('clientes')
         .select('codigo, nombre, saldo')
         .gt('saldo', 0);
@@ -135,7 +135,7 @@ async function getClientesConDeuda() {
 
 // Actualizar saldo de cliente
 async function actualizarSaldoCliente(codigo, nombre, nuevoSaldo) {
-    const { error } = await supabase
+    const { error } = await supabaseClient
         .from('clientes')
         .upsert({
             codigo: codigo,
@@ -155,7 +155,7 @@ async function actualizarSaldoCliente(codigo, nombre, nuevoSaldo) {
 
 // Obtener clientes de ruta por día
 async function getClientesRuta(telegramId, diaSemana) {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseClient
         .from('rutas')
         .select('codigo_cliente, nombre_cliente')
         .eq('telegram_id', telegramId)
@@ -174,7 +174,7 @@ async function getClientesRuta(telegramId, diaSemana) {
 
 // Guardar historial de visitas
 async function guardarHistorialVisitas(visitasData) {
-    const { error } = await supabase
+    const { error } = await supabaseClient
         .from('historial_visitas')
         .upsert(visitasData, {
             onConflict: 'telegram_id,fecha'
@@ -191,7 +191,7 @@ async function guardarHistorialVisitas(visitasData) {
 // Obtener o crear vendedor
 async function getOrCreateVendedor(telegramId, nombre) {
     // Intentar obtener vendedor existente
-    let { data, error } = await supabase
+    let { data, error } = await supabaseClient
         .from('vendedores')
         .select('*')
         .eq('telegram_id', telegramId)
@@ -199,7 +199,7 @@ async function getOrCreateVendedor(telegramId, nombre) {
 
     if (error && error.code === 'PGRST116') {
         // No existe, crear nuevo
-        const { data: newVendedor, error: insertError } = await supabase
+        const { data: newVendedor, error: insertError } = await supabaseClient
             .from('vendedores')
             .insert({
                 telegram_id: telegramId,
