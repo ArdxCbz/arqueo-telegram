@@ -10,7 +10,7 @@ const fs = require('fs');
 
 // Configuración de Supabase
 const SUPABASE_URL = 'https://pftngeppuaoobsbnssje.supabase.co';
-const SUPABASE_ANON_KEY = 'sb_publishable_r0QjWW_e0cSLRMRkCrlj3A_iNLQdV38';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBmdG5nZXBwdWFvb2JzYm5zc2plIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg3ODIxNDUsImV4cCI6MjA4NDM1ODE0NX0.JyU-aFgZRXrt0By-m5tkc4d3FQRrBeKfAp1d8GuJgKU';
 
 // ID de Telegram del vendedor (reemplaza con el tuyo)
 const TELEGRAM_ID = 1719186398; // <-- CAMBIA ESTO
@@ -51,23 +51,25 @@ function parsearTitulo(titulo) {
     }
 }
 
-// Función para parsear CSV
+// Función para parsear CSV (separado por comas)
 function parsearCSV(contenido) {
     const lineas = contenido.split('\n');
-    const headers = lineas[0].split('\t').map(h => h.trim());
-
     const registros = [];
 
+    // Saltar la primera línea (header)
     for (let i = 1; i < lineas.length; i++) {
-        const valores = lineas[i].split('\t');
-        if (valores.length < headers.length) continue;
+        const linea = lineas[i].trim();
+        if (!linea) continue;
 
-        const registro = {};
-        headers.forEach((header, index) => {
-            registro[header] = valores[index]?.trim() || '';
-        });
+        // Dividir por comas
+        const valores = linea.split(',');
 
-        registros.push(registro);
+        if (valores.length >= 5) {
+            registros.push({
+                dia: valores[0]?.trim() || '',
+                titulo: valores[4]?.trim() || ''
+            });
+        }
     }
 
     return registros;
@@ -91,53 +93,65 @@ async function importarClientes() {
 
     // Preparar datos para Supabase
     const rutas = [];
+    const duplicadosCheck = new Set(); // Para evitar duplicados dentro del mismo CSV
 
     registros.forEach((reg, index) => {
-        const diaEspanol = (reg['Folder name'] || '').toLowerCase();
+        const diaEspanol = (reg.dia || '').toLowerCase();
         const diaCorto = DIAS_MAP[diaEspanol];
 
         if (!diaCorto) {
-            console.log(`⚠️  Registro ${index + 1}: Día no reconocido "${reg['Folder name']}"`);
+            console.log(`⚠️  Registro ${index + 1}: Día no reconocido "${reg.dia}"`);
             return;
         }
 
-        const { codigo, nombre } = parsearTitulo(reg['Title']);
+        const { codigo, nombre } = parsearTitulo(reg.titulo);
 
         if (!nombre) {
             console.log(`⚠️  Registro ${index + 1}: Sin nombre`);
             return;
         }
 
+        const codigoFinal = codigo || `AUTO_${index}`;
+
+        // Verificar duplicado interno
+        const key = `${diaCorto}-${codigoFinal}`;
+        if (duplicadosCheck.has(key)) {
+            console.log(`⚠️  Registro ${index + 1}: Ignorado por duplicado en CSV (${diaCorto} - ${codigoFinal})`);
+            return;
+        }
+        duplicadosCheck.add(key);
+
         rutas.push({
             telegram_id: TELEGRAM_ID,
             dia_semana: diaCorto,
-            codigo_cliente: codigo || `AUTO_${index}`,
+            codigo_cliente: codigoFinal,
             nombre_cliente: nombre
         });
 
-        console.log(`✅ ${diaCorto}: [${codigo || 'SIN CÓDIGO'}] ${nombre}`);
+        console.log(`✅ ${diaCorto}: [${codigoFinal}] ${nombre}`);
     });
 
     console.log(`\n📊 Total a importar: ${rutas.length} clientes\n`);
 
-    // Insertar en Supabase
-    console.log('🚀 Enviando a Supabase...\n');
+    // Insertar en Supabase con UPSERT
+    console.log('🚀 Enviando a Supabase (Upsert)...\n');
 
     try {
-        const response = await fetch(`${SUPABASE_URL}/rest/v1/rutas`, {
+        // Añadimos on_conflict para especificar las columnas de la restricción única
+        const response = await fetch(`${SUPABASE_URL}/rest/v1/rutas?on_conflict=telegram_id,dia_semana,codigo_cliente`, {
             method: 'POST',
             headers: {
                 'apikey': SUPABASE_ANON_KEY,
                 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
                 'Content-Type': 'application/json',
-                'Prefer': 'resolution=merge-duplicates'
+                'Prefer': 'resolution=merge-duplicates' // Esto activa el funcionamiento tipo UPSERT
             },
             body: JSON.stringify(rutas)
         });
 
         if (response.ok) {
             console.log('✅ ¡Importación exitosa!');
-            console.log(`   ${rutas.length} clientes agregados a la tabla "rutas"`);
+            console.log(`   Se procesaron ${rutas.length} registros (insertados o actualizados)`);
         } else {
             const error = await response.text();
             console.error('❌ Error de Supabase:', error);
