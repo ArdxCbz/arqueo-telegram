@@ -223,3 +223,43 @@ async function getOrCreateVendedor(telegramId, nombre) {
 
     return data;
 }
+
+// Reemplazar toda la ruta de un vendedor
+async function reemplazarRutaVendedor(telegramId, rutas) {
+    try {
+        // 1. Eliminar ruta existente del vendedor
+        const { error: deleteError } = await supabaseClient
+            .from('rutas')
+            .delete()
+            .eq('telegram_id', telegramId);
+
+        if (deleteError) {
+            console.error('Error eliminando ruta anterior:', deleteError);
+            throw deleteError;
+        }
+
+        // 2. Insertar nueva ruta
+        if (rutas && rutas.length > 0) {
+            const rutasConTelegram = rutas.map(r => ({
+                telegram_id: telegramId,
+                dia_semana: r.dia_semana,
+                codigo_cliente: r.codigo_cliente,
+                nombre_cliente: r.nombre_cliente
+            }));
+
+            const { error: insertError } = await supabaseClient
+                .from('rutas')
+                .insert(rutasConTelegram);
+
+            if (insertError) {
+                console.error('Error insertando nueva ruta:', insertError);
+                throw insertError;
+            }
+        }
+
+        return { success: true, count: rutas.length };
+    } catch (error) {
+        console.error('Error reemplazando ruta:', error);
+        throw error;
+    }
+}

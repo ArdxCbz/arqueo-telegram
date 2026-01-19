@@ -26,6 +26,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initFecha();
     initEventListeners();
     initVisitas();
+    initRutaUpload(); // Nueva pestaña de configuración de ruta
     addCreditoRow();
     calcularTodo();
     cargarClientesConDeuda();
@@ -66,6 +67,7 @@ function initTelegram() {
         // Actualizar UI inmediatamente
         document.getElementById('vendedor-nombre').textContent = nombreCompleto;
         document.getElementById('vendedor-nombre-visitas').textContent = nombreCompleto;
+        document.getElementById('vendedor-nombre-ruta').textContent = nombreCompleto;
 
         // Aplicar tema de Telegram
         if (tg.colorScheme === 'light') {
@@ -93,6 +95,7 @@ function initTelegram() {
         vendedorUsername = '1719186398';
         document.getElementById('vendedor-nombre').textContent = 'Modo Desarrollo';
         document.getElementById('vendedor-nombre-visitas').textContent = 'Modo Desarrollo';
+        document.getElementById('vendedor-nombre-ruta').textContent = 'Modo Desarrollo';
 
         // Mostrar botones HTML en modo desarrollo
         document.getElementById('btn-enviar').style.display = 'block';
@@ -942,3 +945,221 @@ async function enviarArqueo() {
         alert('Error al guardar. Por favor intente nuevamente.');
     }
 }
+
+// ===== CSV Upload para Ruta =====
+let rutasParsedas = []; // Almacena los registros parseados del CSV
+
+const DIAS_MAP_UPLOAD = {
+    'domingo': 'DOM',
+    'lunes': 'LUN',
+    'martes': 'MAR',
+    'miercoles': 'MIE',
+    'miércoles': 'MIE',
+    'jueves': 'JUE',
+    'viernes': 'VIE',
+    'sabado': 'SAB',
+    'sábado': 'SAB'
+};
+
+function initRutaUpload() {
+    const uploadZone = document.getElementById('upload-zone');
+    const csvInput = document.getElementById('csv-input');
+    const btnSelectFile = document.getElementById('btn-select-file');
+    const btnRemoveFile = document.getElementById('btn-remove-file');
+    const btnGuardarRuta = document.getElementById('btn-guardar-ruta');
+
+    // Click en zona de upload
+    uploadZone.addEventListener('click', () => csvInput.click());
+    btnSelectFile.addEventListener('click', (e) => {
+        e.stopPropagation();
+        csvInput.click();
+    });
+
+    // Arrastrar y soltar
+    uploadZone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        uploadZone.classList.add('dragover');
+    });
+
+    uploadZone.addEventListener('dragleave', () => {
+        uploadZone.classList.remove('dragover');
+    });
+
+    uploadZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        uploadZone.classList.remove('dragover');
+        const files = e.dataTransfer.files;
+        if (files.length > 0 && files[0].name.endsWith('.csv')) {
+            procesarArchivoCSV(files[0]);
+        }
+    });
+
+    // Selección de archivo
+    csvInput.addEventListener('change', (e) => {
+        if (e.target.files.length > 0) {
+            procesarArchivoCSV(e.target.files[0]);
+        }
+    });
+
+    // Remover archivo
+    btnRemoveFile.addEventListener('click', () => {
+        resetUpload();
+    });
+
+    // Guardar ruta
+    btnGuardarRuta.addEventListener('click', () => {
+        guardarRutaVendedor();
+    });
+}
+
+function procesarArchivoCSV(file) {
+    const reader = new FileReader();
+
+    reader.onload = function (e) {
+        const contenido = e.target.result;
+        const registros = parsearCSVRuta(contenido);
+
+        rutasParsedas = registros;
+
+        // Mostrar nombre del archivo
+        document.getElementById('file-info').style.display = 'flex';
+        document.getElementById('file-name').textContent = file.name;
+        document.getElementById('upload-zone').style.display = 'none';
+
+        // Mostrar preview
+        mostrarPreviewRuta(registros);
+    };
+
+    reader.readAsText(file);
+}
+
+function parsearCSVRuta(contenido) {
+    const lineas = contenido.split('\n');
+    const registros = [];
+    const duplicadosCheck = new Set();
+
+    // Saltar primera línea (header)
+    for (let i = 1; i < lineas.length; i++) {
+        const linea = lineas[i].trim();
+        if (!linea) continue;
+
+        const valores = linea.split(',');
+        if (valores.length < 5) continue;
+
+        const diaEspanol = (valores[0] || '').toLowerCase().trim();
+        const diaCorto = DIAS_MAP_UPLOAD[diaEspanol];
+        if (!diaCorto) continue;
+
+        const titulo = (valores[4] || '').trim();
+        const { codigo, nombre } = parsearTituloCliente(titulo);
+        if (!nombre) continue;
+
+        const codigoFinal = codigo || `AUTO_${i}`;
+        const key = `${diaCorto}-${codigoFinal}`;
+
+        if (duplicadosCheck.has(key)) continue;
+        duplicadosCheck.add(key);
+
+        registros.push({
+            dia_semana: diaCorto,
+            codigo_cliente: codigoFinal,
+            nombre_cliente: nombre
+        });
+    }
+
+    return registros;
+}
+
+function parsearTituloCliente(titulo) {
+    if (!titulo) return { codigo: null, nombre: '' };
+    titulo = titulo.trim();
+    const match = titulo.match(/^(\d{4})\s+(.+)$/);
+    if (match) {
+        return { codigo: match[1], nombre: match[2].trim() };
+    }
+    return { codigo: null, nombre: titulo };
+}
+
+function mostrarPreviewRuta(registros) {
+    const previewSection = document.getElementById('preview-section');
+    const submitContainer = document.getElementById('submit-ruta-container');
+    const tbody = document.getElementById('preview-tbody');
+
+    // Estadísticas
+    const diasUnicos = new Set(registros.map(r => r.dia_semana));
+    document.getElementById('preview-total').textContent = registros.length;
+    document.getElementById('preview-dias').textContent = diasUnicos.size;
+
+    // Tabla de preview (máximo 50 filas)
+    tbody.innerHTML = '';
+    const maxRows = Math.min(registros.length, 50);
+    for (let i = 0; i < maxRows; i++) {
+        const r = registros[i];
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td>${r.dia_semana}</td>
+            <td>${r.codigo_cliente}</td>
+            <td>${r.nombre_cliente}</td>
+        `;
+        tbody.appendChild(tr);
+    }
+
+    if (registros.length > 50) {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td colspan="3" style="text-align:center; color:var(--text-muted)">... y ${registros.length - 50} más</td>`;
+        tbody.appendChild(tr);
+    }
+
+    previewSection.style.display = 'block';
+    submitContainer.style.display = 'block';
+}
+
+function resetUpload() {
+    rutasParsedas = [];
+    document.getElementById('csv-input').value = '';
+    document.getElementById('file-info').style.display = 'none';
+    document.getElementById('upload-zone').style.display = 'block';
+    document.getElementById('preview-section').style.display = 'none';
+    document.getElementById('submit-ruta-container').style.display = 'none';
+    document.getElementById('result-message').style.display = 'none';
+}
+
+async function guardarRutaVendedor() {
+    if (!supabaseClient || !telegramUserId) {
+        alert('Error: No se pudo conectar con la base de datos');
+        return;
+    }
+
+    if (rutasParsedas.length === 0) {
+        alert('No hay datos para guardar');
+        return;
+    }
+
+    const resultMessage = document.getElementById('result-message');
+    const btnGuardar = document.getElementById('btn-guardar-ruta');
+
+    btnGuardar.disabled = true;
+    btnGuardar.textContent = 'Guardando...';
+
+    try {
+        const result = await reemplazarRutaVendedor(telegramUserId, rutasParsedas);
+
+        resultMessage.className = 'result-message success';
+        resultMessage.textContent = `✅ ¡Ruta actualizada! ${result.count} clientes guardados.`;
+        resultMessage.style.display = 'block';
+
+        // Limpiar después de éxito
+        setTimeout(() => {
+            resetUpload();
+        }, 3000);
+    } catch (error) {
+        resultMessage.className = 'result-message error';
+        resultMessage.textContent = '❌ Error al guardar. Intente nuevamente.';
+        resultMessage.style.display = 'block';
+    } finally {
+        btnGuardar.disabled = false;
+        btnGuardar.textContent = '🔄 Actualizar Mi Ruta';
+    }
+}
+
+// Inicializar upload cuando se carga la página (agregar a DOMContentLoaded)

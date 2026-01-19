@@ -21,6 +21,10 @@
                 <span class="tab-icon">📍</span>
                 <span class="tab-text">Visitas</span>
             </button>
+            <button class="tab-btn" data-tab="ruta">
+                <span class="tab-icon">📂</span>
+                <span class="tab-text">Ruta</span>
+            </button>
         </nav>
 
         <!-- ==================== TAB: ARQUEO ==================== -->
@@ -246,6 +250,93 @@
                 <button type="button" class="btn-submit btn-visitas" id="btn-guardar-visitas">
                     Guardar Visitas
                 </button>
+            </div>
+        </div>
+
+        <!-- ==================== TAB: RUTA ==================== -->
+        <div class="tab-content" id="tab-ruta">
+            <!-- Header -->
+            <header class="header">
+                <h1>CONFIGURAR MI RUTA</h1>
+                <div class="vendedor-info">
+                    <span class="label">Vendedor:</span>
+                    <span id="vendedor-nombre-ruta" class="value">Cargando...</span>
+                </div>
+            </header>
+
+            <!-- Instrucciones -->
+            <section class="section">
+                <h2 class="section-title">
+                    <span class="icon">📋</span> Instrucciones
+                </h2>
+                <div class="instrucciones-box">
+                    <p>Sube tu archivo <strong>CSV</strong> exportado de la app de mapas.</p>
+                    <p>El archivo debe tener:</p>
+                    <ul>
+                        <li><strong>Columna 1:</strong> Día (Lunes, Martes, etc.)</li>
+                        <li><strong>Columna 5:</strong> Código + Nombre del cliente</li>
+                    </ul>
+                </div>
+            </section>
+
+            <!-- Upload Zone -->
+            <section class="section upload-section">
+                <h2 class="section-title">
+                    <span class="icon">📂</span> Subir Archivo
+                </h2>
+                <div class="upload-zone" id="upload-zone">
+                    <input type="file" id="csv-input" accept=".csv" hidden>
+                    <div class="upload-content">
+                        <span class="upload-icon">📄</span>
+                        <p class="upload-text">Haz clic o arrastra tu archivo CSV aquí</p>
+                        <button type="button" class="btn-select-file" id="btn-select-file">Seleccionar Archivo</button>
+                    </div>
+                </div>
+                <div class="file-info" id="file-info" style="display: none;">
+                    <span class="file-name" id="file-name"></span>
+                    <button type="button" class="btn-remove-file" id="btn-remove-file">✕</button>
+                </div>
+            </section>
+
+            <!-- Preview -->
+            <section class="section preview-section" id="preview-section" style="display: none;">
+                <h2 class="section-title">
+                    <span class="icon">👁️</span> Vista Previa
+                </h2>
+                <div class="preview-stats">
+                    <div class="stat-item">
+                        <span class="stat-value" id="preview-total">0</span>
+                        <span class="stat-label">Clientes</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-value" id="preview-dias">0</span>
+                        <span class="stat-label">Días</span>
+                    </div>
+                </div>
+                <div class="preview-table-container">
+                    <table class="preview-table" id="preview-table">
+                        <thead>
+                            <tr>
+                                <th>Día</th>
+                                <th>Código</th>
+                                <th>Nombre</th>
+                            </tr>
+                        </thead>
+                        <tbody id="preview-tbody">
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- Botón Guardar -->
+            <div class="submit-container" id="submit-ruta-container" style="display: none;">
+                <button type="button" class="btn-submit btn-ruta" id="btn-guardar-ruta">
+                    🔄 Actualizar Mi Ruta
+                </button>
+            </div>
+
+            <!-- Resultado -->
+            <div class="result-message" id="result-message" style="display: none;">
             </div>
         </div>
     </div>
