@@ -72,10 +72,13 @@ async function cargarClientesParaCredito() {
         clientesRutaCredito = await getClientesParaCredito(telegramUserId);
         console.log('Clientes para crédito cargados:', clientesRutaCredito.length);
 
-        // Si no hay clientes, mostrar advertencia en consola
         if (clientesRutaCredito.length === 0) {
             console.warn('ATENCIÓN: Cero clientes habilitados para crédito encontrados. Verificar columna credito_habilitado en Supabase.');
         }
+
+        // Importante: Actualizar los selects que ya se renderizaron vacíos
+        actualizarSelectsCredito();
+
     } catch (error) {
         console.error('Error cargando clientes para crédito:', error);
     }
@@ -789,6 +792,37 @@ function addCreditoRow(data = {}) {
             calcularTodo();
         });
     }
+}
+
+// Actualizar selects de crédito existentes con los clientes cargados
+function actualizarSelectsCredito() {
+    const selects = document.querySelectorAll('.codigo-select');
+    let opciones = '';
+
+    if (clientesRutaCredito.length === 0) {
+        opciones = '<option value="" disabled>⚠️ No hay clientes habilitados para crédito</option>';
+    } else {
+        opciones = '<option value="">Seleccionar cliente...</option>' +
+            clientesRutaCredito.map(c =>
+                `<option value="${c.codigo}">${c.codigo} - ${c.nombre}</option>`
+            ).join('');
+    }
+
+    selects.forEach(select => {
+        // Preservar valor seleccionado si existe
+        const valorActual = select.value;
+        const indexSeleccionado = select.selectedIndex;
+
+        // Solo actualizar si estaba vacío o con mensaje de error, o si queremos refrescar la lista completa
+        // Pero para simplificar y asegurar consistencia, regeneramos todo y re-asignamos valor
+        select.innerHTML = opciones;
+
+        if (valorActual) {
+            select.value = valorActual;
+        }
+    });
+
+    console.log(`Selects de crédito actualizados: ${selects.length}`);
 }
 
 function getCreditosData() {
