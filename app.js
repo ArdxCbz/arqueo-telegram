@@ -2,7 +2,7 @@
 const tg = window.Telegram?.WebApp;
 
 // ===== Configuration =====
-// Backend: Supabase (configurado en supabase-client.js)
+// Backend: supabaseClient (configurado en supabaseClient-client.js)
 let telegramUserId = null;
 
 // ===== State =====
@@ -36,10 +36,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }, 500);
 });
 
-// Cargar clientes con deuda desde Supabase
+// Cargar clientes con deuda desde supabaseClient
 async function cargarClientesConDeuda() {
-    if (!supabase) {
-        console.log('Supabase no inicializado, esperando...');
+    if (!supabaseClient) {
+        console.log('supabaseClient no inicializado, esperando...');
         return;
     }
 
@@ -99,16 +99,16 @@ function initTelegram() {
         document.getElementById('btn-guardar-visitas').style.display = 'block';
     }
 
-    // Inicializar Supabase DESPUÉS de actualizar la UI
+    // Inicializar supabaseClient DESPUÉS de actualizar la UI
     try {
-        initSupabase();
+        initsupabaseClient();
 
-        // Registrar vendedor en Supabase (si está disponible)
-        if (telegramUserId && supabase) {
+        // Registrar vendedor en supabaseClient (si está disponible)
+        if (telegramUserId && supabaseClient) {
             getOrCreateVendedor(telegramUserId, document.getElementById('vendedor-nombre').textContent);
         }
     } catch (error) {
-        console.error('Error inicializando Supabase:', error);
+        console.error('Error inicializando supabaseClient:', error);
     }
 }
 
@@ -210,10 +210,10 @@ function getTimestampLocal() {
     return `${dia}/${mes}/${anio} ${hora}:${min}:${seg}`;
 }
 
-// Cargar arqueo existente del día (Supabase)
+// Cargar arqueo existente del día (supabaseClient)
 async function cargarArqueoExistente() {
-    if (!supabase || !telegramUserId) {
-        console.log('Supabase o telegramUserId no disponible');
+    if (!supabaseClient || !telegramUserId) {
+        console.log('supabaseClient o telegramUserId no disponible');
         return;
     }
 
@@ -401,9 +401,9 @@ function actualizarDisplayDia() {
 function cargarClientesDelDia() {
     const diaCorto = DIAS_CORTOS[currentDiaIndex];
 
-    // Si Supabase está disponible, cargar desde ahí
-    if (supabase && telegramUserId) {
-        cargarClientesDesdeSupabase();
+    // Si supabaseClient está disponible, cargar desde ahí
+    if (supabaseClient && telegramUserId) {
+        cargarClientesDesdesupabaseClient();
         return;
     }
 
@@ -427,8 +427,8 @@ function cargarClientesDelDia() {
     renderizarClientes();
 }
 
-// Cargar clientes desde Supabase
-async function cargarClientesDesdeSupabase() {
+// Cargar clientes desde supabaseClient
+async function cargarClientesDesdesupabaseClient() {
     try {
         const diaCorto = DIAS_CORTOS[currentDiaIndex];
 
@@ -511,7 +511,7 @@ function actualizarContadorVisitas() {
 }
 
 async function guardarVisitas() {
-    if (!supabase || !telegramUserId) {
+    if (!supabaseClient || !telegramUserId) {
         alert('Error: No se pudo conectar con la base de datos');
         return;
     }
@@ -855,14 +855,14 @@ function calcularTodo() {
     }
 }
 
-// ===== Enviar Arqueo (Supabase) =====
+// ===== Enviar Arqueo (supabaseClient) =====
 async function enviarArqueo() {
     console.log('enviarArqueo llamado');
-    console.log('supabase:', supabase);
+    console.log('supabaseClient:', supabaseClient);
     console.log('telegramUserId:', telegramUserId);
 
-    if (!supabase) {
-        alert('Error: Supabase no está inicializado. Recarga la página.');
+    if (!supabaseClient) {
+        alert('Error: supabaseClient no está inicializado. Recarga la página.');
         return;
     }
 
