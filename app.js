@@ -65,6 +65,10 @@ async function cargarClientesParaCredito() {
 
     try {
         console.log('Cargando clientes de crédito para:', telegramUserId);
+
+        // DEBUG: Mostrar alerta con ID para confirmar
+        alert(`DEBUG: Cargando clientes para ID: ${telegramUserId}`);
+
         clientesRutaCredito = await getClientesParaCredito(telegramUserId);
         console.log('Clientes para crédito cargados:', clientesRutaCredito.length);
 
@@ -394,7 +398,15 @@ function actualizarBotonEnviar() {
 // ===== Visitas =====
 function initVisitas() {
     const hoy = new Date();
+    // Validar que hoy sea una fecha válida
+    if (isNaN(hoy.getTime())) {
+        console.error('Error crítico: Fecha del sistema inválida');
+        alert('Error: Fecha del sistema no válida');
+        return;
+    }
+
     currentDiaIndex = hoy.getDay(); // 0 = Domingo, 6 = Sábado
+    console.log('initVisitas: hoy=', hoy, 'diaIndex=', currentDiaIndex);
 
     // Event listeners para navegación de días
     document.getElementById('btn-dia-prev').addEventListener('click', () => cambiarDia(-1));
