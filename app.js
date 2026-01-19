@@ -852,8 +852,17 @@ function calcularTodo() {
 
 // ===== Enviar Arqueo (Supabase) =====
 async function enviarArqueo() {
-    if (!supabase || !telegramUserId) {
-        alert('Error: No se pudo conectar con la base de datos');
+    console.log('enviarArqueo llamado');
+    console.log('supabase:', supabase);
+    console.log('telegramUserId:', telegramUserId);
+
+    if (!supabase) {
+        alert('Error: Supabase no está inicializado. Recarga la página.');
+        return;
+    }
+
+    if (!telegramUserId) {
+        alert('Error: No se pudo obtener el ID del usuario');
         return;
     }
 
