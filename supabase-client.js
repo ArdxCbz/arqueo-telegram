@@ -271,7 +271,8 @@ async function reemplazarRutaVendedor(telegramId, rutas) {
                 telegram_id: telegramId,
                 dia_semana: r.dia_semana,
                 codigo_cliente: r.codigo_cliente,
-                nombre_cliente: r.nombre_cliente
+                nombre_cliente: r.nombre_cliente,
+                credito_habilitado: false // Por defecto deshabilitado, admin debe habilitar
             }));
 
             const { error: insertError } = await supabaseClient
