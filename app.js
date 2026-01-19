@@ -55,15 +55,23 @@ async function cargarClientesConDeuda() {
 }
 
 // Cargar clientes de la ruta habilitados para crédito
+// Cargar clientes de la ruta habilitados para crédito
 async function cargarClientesParaCredito() {
     if (!supabaseClient || !telegramUserId) {
-        console.log('Esperando inicialización para cargar clientes de crédito...');
+        console.log('Esperando inicialización para cargar clientes de crédito... reintentando en 1s');
+        setTimeout(cargarClientesParaCredito, 1000); // Reintentar
         return;
     }
 
     try {
+        console.log('Cargando clientes de crédito para:', telegramUserId);
         clientesRutaCredito = await getClientesParaCredito(telegramUserId);
         console.log('Clientes para crédito cargados:', clientesRutaCredito.length);
+
+        // Si no hay clientes, mostrar advertencia en consola
+        if (clientesRutaCredito.length === 0) {
+            console.warn('ATENCIÓN: Cero clientes habilitados para crédito encontrados. Verificar columna credito_habilitado en Supabase.');
+        }
     } catch (error) {
         console.error('Error cargando clientes para crédito:', error);
     }
@@ -664,9 +672,14 @@ function addCreditoRow(data = {}) {
     tr.classList.toggle('locked-row', isLocked);
 
     // Generar opciones del SELECT con clientes habilitados
-    const opcionesClientes = clientesRutaCredito.map(c =>
-        `<option value="${c.codigo}" ${data.codigo === c.codigo ? 'selected' : ''}>${c.codigo} - ${c.nombre}</option>`
-    ).join('');
+    let opcionesClientes = '';
+    if (clientesRutaCredito.length === 0) {
+        opcionesClientes = '<option value="" disabled>⚠️ No hay clientes habilitados para crédito</option>';
+    } else {
+        opcionesClientes = clientesRutaCredito.map(c =>
+            `<option value="${c.codigo}" ${data.codigo === c.codigo ? 'selected' : ''}>${c.codigo} - ${c.nombre}</option>`
+        ).join('');
+    }
 
     tr.innerHTML = `
         <td>
