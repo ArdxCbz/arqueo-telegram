@@ -53,27 +53,19 @@ async function cargarClientesConDeuda() {
 
 // ===== Telegram Integration =====
 function initTelegram() {
-    // Inicializar Supabase
-    initSupabase();
-
     if (tg) {
         tg.ready();
         tg.expand();
 
-        // Obtener datos del usuario de Telegram
+        // Obtener datos del usuario de Telegram PRIMERO
         const user = tg.initDataUnsafe?.user;
-        // Usar user.id como identificador del vendedor (único y estable)
         telegramUserId = user?.id || null;
         vendedorUsername = user?.id ? String(user.id) : 'Usuario';
         const nombreCompleto = user ? (user.first_name + (user.last_name ? ' ' + user.last_name : '')) : 'Usuario';
 
+        // Actualizar UI inmediatamente
         document.getElementById('vendedor-nombre').textContent = nombreCompleto;
         document.getElementById('vendedor-nombre-visitas').textContent = nombreCompleto;
-
-        // Registrar vendedor en Supabase
-        if (telegramUserId && supabase) {
-            getOrCreateVendedor(telegramUserId, nombreCompleto);
-        }
 
         // Aplicar tema de Telegram
         if (tg.colorScheme === 'light') {
@@ -100,6 +92,18 @@ function initTelegram() {
         vendedorUsername = 'ModoDesarrollo';
         document.getElementById('vendedor-nombre').textContent = 'Modo Desarrollo';
         document.getElementById('vendedor-nombre-visitas').textContent = 'Modo Desarrollo';
+    }
+
+    // Inicializar Supabase DESPUÉS de actualizar la UI
+    try {
+        initSupabase();
+
+        // Registrar vendedor en Supabase (si está disponible)
+        if (telegramUserId && supabase) {
+            getOrCreateVendedor(telegramUserId, document.getElementById('vendedor-nombre').textContent);
+        }
+    } catch (error) {
+        console.error('Error inicializando Supabase:', error);
     }
 }
 
