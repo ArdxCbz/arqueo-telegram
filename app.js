@@ -88,10 +88,15 @@ function initTelegram() {
         document.getElementById('btn-guardar-visitas').style.display = 'none';
     } else {
         // Modo desarrollo sin Telegram
-        telegramUserId = 123456789; // ID de prueba
-        vendedorUsername = 'ModoDesarrollo';
+        console.log('Modo desarrollo detectado');
+        telegramUserId = 1719186398; // ID real del vendedor
+        vendedorUsername = '1719186398';
         document.getElementById('vendedor-nombre').textContent = 'Modo Desarrollo';
         document.getElementById('vendedor-nombre-visitas').textContent = 'Modo Desarrollo';
+
+        // Mostrar botones HTML en modo desarrollo
+        document.getElementById('btn-enviar').style.display = 'block';
+        document.getElementById('btn-guardar-visitas').style.display = 'block';
     }
 
     // Inicializar Supabase DESPUÉS de actualizar la UI
