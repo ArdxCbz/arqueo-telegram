@@ -69,8 +69,7 @@ async function cargarClientesParaCredito() {
     try {
         console.log('Cargando clientes de crédito para:', telegramUserId);
 
-        // DEBUG: Mostrar alerta con ID para confirmar
-        alert(`DEBUG: Cargando clientes para ID: ${telegramUserId}`);
+
 
         clientesRutaCredito = await getClientesParaCredito(telegramUserId);
         console.log('Clientes para crédito cargados:', clientesRutaCredito.length);
