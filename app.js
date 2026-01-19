@@ -101,7 +101,7 @@ function initTelegram() {
 
     // Inicializar supabaseClient DESPUÉS de actualizar la UI
     try {
-        initsupabaseClient();
+        initSupabase();
 
         // Registrar vendedor en supabaseClient (si está disponible)
         if (telegramUserId && supabaseClient) {
@@ -111,6 +111,8 @@ function initTelegram() {
         console.error('Error inicializando supabaseClient:', error);
     }
 }
+
+
 
 // ===== Tabs Navigation =====
 function initTabs() {
@@ -588,6 +590,16 @@ function handleMoneyInput(input) {
 
 // ===== Event Listeners =====
 function initEventListeners() {
+    // Escuchar cambio de fecha
+    document.getElementById('fecha').addEventListener('change', (e) => {
+        cambiarDia(new Date(e.target.value));
+        cargarArqueoExistente(); // Recargar datos al cambiar fecha
+    });
+
+    // Botones de acción manual (Modo Desarrollo / Fallback)
+    document.getElementById('btn-enviar').addEventListener('click', enviarArqueo);
+    document.getElementById('btn-guardar-visitas').addEventListener('click', guardarVisitas);
+
     const moneyInputs = ['venta-bruta', 'descuentos', 'efectivo-entregado', 'qr-entregado'];
     moneyInputs.forEach(id => {
         const input = document.getElementById(id);
