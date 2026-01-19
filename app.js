@@ -37,6 +37,9 @@ document.addEventListener('DOMContentLoaded', () => {
     setTimeout(() => {
         cargarArqueoExistente();
     }, 500);
+
+    // Inicializar UI en pestaña Arqueo (configura botones correctamente)
+    switchTab('arqueo');
 });
 
 // Cargar clientes con deuda desde supabaseClient
@@ -112,14 +115,18 @@ function initTelegram() {
         tg.MainButton.onClick(() => {
             if (currentTab === 'arqueo') {
                 enviarArqueo();
-            } else {
+            } else if (currentTab === 'visitas') {
                 guardarVisitas();
             }
+            // En pestaña ruta el botón debería estar oculto
         });
 
         // Ocultar botones HTML ya que Telegram usa MainButton
-        document.getElementById('btn-enviar').style.display = 'none';
-        document.getElementById('btn-guardar-visitas').style.display = 'none';
+        const btnArqueo = document.getElementById('btn-enviar');
+        const btnVisitas = document.getElementById('btn-guardar-visitas');
+        if (btnArqueo) btnArqueo.style.display = 'none';
+        if (btnVisitas) btnVisitas.style.display = 'none';
+
     } else {
         // Modo desarrollo sin Telegram
         console.log('Modo desarrollo detectado');
@@ -129,9 +136,7 @@ function initTelegram() {
         document.getElementById('vendedor-nombre-visitas').textContent = 'Modo Desarrollo';
         document.getElementById('vendedor-nombre-ruta').textContent = 'Modo Desarrollo';
 
-        // Mostrar botones HTML en modo desarrollo
-        document.getElementById('btn-enviar').style.display = 'block';
-        document.getElementById('btn-guardar-visitas').style.display = 'block';
+        // La visibilidad de botones HTML se manejará en switchTab
     }
 
     // Inicializar supabaseClient DESPUÉS de actualizar la UI
@@ -174,12 +179,35 @@ function switchTab(tabName) {
         content.classList.toggle('active', content.id === `tab-${tabName}`);
     });
 
-    // Update Telegram main button
+    // Gestión de botones (Telegram y HTML fallback)
+    const btnArqueo = document.getElementById('btn-enviar');
+    const btnVisitas = document.getElementById('btn-guardar-visitas');
+
+    // 1. Resetear visibilidad de botones HTML (ocultar ambos por defecto)
+    if (btnArqueo) btnArqueo.style.display = 'none';
+    if (btnVisitas) btnVisitas.style.display = 'none';
+
+    // 2. Configurar botón según plataforma (TG o Web)
     if (tg) {
         if (tabName === 'arqueo') {
-            tg.MainButton.setText('Enviar Arqueo');
-        } else {
+            tg.MainButton.setText(modoEdicion ? 'Actualizar Arqueo' : 'Enviar Arqueo');
+            tg.MainButton.show();
+        } else if (tabName === 'visitas') {
             tg.MainButton.setText('Guardar Visitas');
+            tg.MainButton.show();
+        } else {
+            // En pestaña 'ruta' u otras, ocultamos el botón principal de TG
+            tg.MainButton.hide();
+        }
+    } else {
+        // Modo Desarrollo (Sin Telegram)
+        if (tabName === 'arqueo') {
+            if (btnArqueo) {
+                btnArqueo.style.display = 'block';
+                btnArqueo.textContent = modoEdicion ? 'Actualizar Arqueo' : 'Enviar Arqueo';
+            }
+        } else if (tabName === 'visitas') {
+            if (btnVisitas) btnVisitas.style.display = 'block';
         }
     }
 }
@@ -387,14 +415,17 @@ function habilitarFormulario(habilitar) {
 }
 
 // Actualizar texto del botón según modo
+// Actualizar texto del botón según modo
 function actualizarBotonEnviar() {
     const btnHtml = document.getElementById('btn-enviar');
-    if (modoEdicion) {
-        if (btnHtml) btnHtml.textContent = 'Actualizar Arqueo';
-        if (tg) tg.MainButton.setText('Actualizar Arqueo');
-    } else {
-        if (btnHtml) btnHtml.textContent = 'Enviar Arqueo';
-        if (tg) tg.MainButton.setText('Enviar Arqueo');
+    const texto = modoEdicion ? 'Actualizar Arqueo' : 'Enviar Arqueo';
+
+    // Botón HTML (siempre visible en su pestana, pero actualizamos texto por si acaso)
+    if (btnHtml) btnHtml.textContent = texto;
+
+    // Botón Telegram (solo si estamos en pestaña arqueo)
+    if (tg && currentTab === 'arqueo') {
+        tg.MainButton.setText(texto);
     }
 }
 
