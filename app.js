@@ -12,6 +12,7 @@ let currentTab = 'arqueo';
 let currentDiaIndex = 0;
 let clientesDelDia = [];
 let clientesConDeuda = []; // Caché de clientes con saldo pendiente
+let clientesRutaCredito = []; // Caché de clientes de la ruta habilitados para crédito
 let vendedorUsername = '';
 let modoEdicion = false; // true si ya existe arqueo del día
 
@@ -30,6 +31,7 @@ document.addEventListener('DOMContentLoaded', () => {
     addCreditoRow();
     calcularTodo();
     cargarClientesConDeuda();
+    cargarClientesParaCredito(); // Cargar clientes habilitados para crédito
 
     // Cargar arqueo existente después de un pequeño delay para asegurar que vendedorUsername esté listo
     setTimeout(() => {
@@ -49,6 +51,21 @@ async function cargarClientesConDeuda() {
         console.log('Clientes con deuda cargados:', clientesConDeuda.length);
     } catch (error) {
         console.error('Error cargando clientes con deuda:', error);
+    }
+}
+
+// Cargar clientes de la ruta habilitados para crédito
+async function cargarClientesParaCredito() {
+    if (!supabaseClient || !telegramUserId) {
+        console.log('Esperando inicialización para cargar clientes de crédito...');
+        return;
+    }
+
+    try {
+        clientesRutaCredito = await getClientesParaCredito(telegramUserId);
+        console.log('Clientes para crédito cargados:', clientesRutaCredito.length);
+    } catch (error) {
+        console.error('Error cargando clientes para crédito:', error);
     }
 }
 
@@ -646,13 +663,20 @@ function addCreditoRow(data = {}) {
     tr.dataset.creditoId = id;
     tr.classList.toggle('locked-row', isLocked);
 
+    // Generar opciones del SELECT con clientes habilitados
+    const opcionesClientes = clientesRutaCredito.map(c =>
+        `<option value="${c.codigo}" ${data.codigo === c.codigo ? 'selected' : ''}>${c.codigo} - ${c.nombre}</option>`
+    ).join('');
+
     tr.innerHTML = `
         <td>
-            <input type="text" 
-                   class="codigo-input ${isLocked ? 'readonly' : ''}" 
-                   value="${data.codigo || ''}" 
-                   placeholder="COD"
-                   ${isLocked ? 'readonly' : ''}>
+            ${isLocked ?
+            `<input type="text" class="codigo-input readonly" value="${data.codigo || ''}" readonly>` :
+            `<select class="codigo-select">
+                    <option value="">Seleccionar cliente...</option>
+                    ${opcionesClientes}
+                </select>`
+        }
         </td>
         <td>
             <input type="text" 
@@ -684,21 +708,22 @@ function addCreditoRow(data = {}) {
     tbody.appendChild(tr);
 
     if (!isLocked) {
-        const codigoInput = tr.querySelector('.codigo-input');
+        const codigoSelect = tr.querySelector('.codigo-select');
         const saldoInput = tr.querySelector('.saldo-input');
         const cobradoInput = tr.querySelector('.cobrado-input');
         const ventaCreditoInput = tr.querySelector('.venta-credito-input');
         const removeBtn = tr.querySelector('.btn-remove');
 
-        // Listener para búsqueda de cliente por código
-        codigoInput.addEventListener('blur', (e) => {
-            const codigo = e.target.value.trim().toUpperCase();
+        // Listener para selección de cliente
+        codigoSelect.addEventListener('change', (e) => {
+            const codigo = e.target.value;
             if (codigo) {
                 // 1. Validar duplicados en la tabla actual
                 const filas = document.querySelectorAll('#creditos-body tr');
                 let duplicado = false;
                 filas.forEach(fila => {
-                    if (fila !== tr && fila.querySelector('.codigo-input').value.toUpperCase() === codigo) {
+                    const select = fila.querySelector('.codigo-select');
+                    if (fila !== tr && select && select.value === codigo) {
                         duplicado = true;
                     }
                 });
@@ -710,13 +735,15 @@ function addCreditoRow(data = {}) {
                     return;
                 }
 
-                // 2. Buscar saldo del cliente
-                const cliente = clientesConDeuda.find(c => String(c.codigo).toUpperCase() === codigo);
+                // 2. Buscar saldo del cliente en clientesConDeuda
+                const cliente = clientesConDeuda.find(c => String(c.codigo) === codigo);
                 if (cliente) {
                     saldoInput.value = formatMoney(cliente.saldo);
                 } else {
-                    saldoInput.value = formatMoney(0); // Cliente nuevo o sin deuda
+                    saldoInput.value = formatMoney(0); // Cliente sin deuda
                 }
+            } else {
+                saldoInput.value = formatMoney(0);
             }
         });
 
@@ -744,7 +771,11 @@ function getCreditosData() {
     const creditos = [];
 
     rows.forEach(row => {
-        const codigo = row.querySelector('.codigo-input').value;
+        // Obtener código del SELECT o del INPUT (para filas bloqueadas)
+        const selectEl = row.querySelector('.codigo-select');
+        const inputEl = row.querySelector('.codigo-input');
+        const codigo = selectEl ? selectEl.value : (inputEl ? inputEl.value : '');
+
         const saldo = parseMoney(row.querySelector('.saldo-input').value);
         const cobrado = parseMoney(row.querySelector('.cobrado-input').value);
         const ventaCredito = parseMoney(row.querySelector('.venta-credito-input').value);

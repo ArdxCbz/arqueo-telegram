@@ -172,6 +172,33 @@ async function getClientesRuta(telegramId, diaSemana) {
     }));
 }
 
+// Obtener clientes de la ruta habilitados para crédito
+async function getClientesParaCredito(telegramId) {
+    const { data, error } = await supabaseClient
+        .from('rutas')
+        .select('codigo_cliente, nombre_cliente')
+        .eq('telegram_id', telegramId)
+        .eq('credito_habilitado', true);
+
+    if (error) {
+        console.error('Error obteniendo clientes para crédito:', error);
+        return [];
+    }
+
+    // Eliminar duplicados (mismo cliente puede estar en varios días)
+    const clientesUnicos = new Map();
+    (data || []).forEach(r => {
+        if (!clientesUnicos.has(r.codigo_cliente)) {
+            clientesUnicos.set(r.codigo_cliente, {
+                codigo: r.codigo_cliente,
+                nombre: r.nombre_cliente
+            });
+        }
+    });
+
+    return Array.from(clientesUnicos.values());
+}
+
 // Guardar historial de visitas
 async function guardarHistorialVisitas(visitasData) {
     const { error } = await supabaseClient
